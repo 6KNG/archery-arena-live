@@ -1,0 +1,3052 @@
+<!DOCTYPE html>
+<!--
+  Archery Arena
+  © 2026 Kai Nguyen Gia. Alle Rechte vorbehalten.
+  Dieses Programm (Quellcode, Konzept und Inhalte) wurde von Kai Nguyen Gia erstellt
+  und ist sein geistiges Eigentum. Jede Vervielfältigung, Verbreitung oder Nutzung
+  ohne ausdrückliche Zustimmung des Urhebers ist nicht gestattet.
+-->
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Archery Arena</title>
+<meta name="author" content="Kai Nguyen Gia">
+<meta name="copyright" content="© 2026 Kai Nguyen Gia. Alle Rechte vorbehalten.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Archery Arena">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1B4332">
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fjalla+One&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===== Minimal Tailwind-Ersatz (offline, keine CDN-Abhaengigkeit) ===== */
+*{box-sizing:border-box;}
+.flex{display:flex;}
+.grid{display:grid;}
+.hidden{display:none;}
+.block{display:block;}
+.sticky{position:sticky;}
+.fixed{position:fixed;}
+.relative{position:relative;}
+.absolute{position:absolute;}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.underline{text-decoration:underline;}
+.uppercase{text-transform:uppercase;}
+.italic{font-style:italic;}
+.flex-wrap{flex-wrap:wrap;}
+.flex-col{flex-direction:column;}
+.flex-1{flex:1 1 0%;}
+.shrink-0{flex-shrink:0;}
+.items-center{align-items:center;}
+.items-start{align-items:flex-start;}
+.items-end{align-items:flex-end;}
+.justify-center{justify-content:center;}
+.justify-between{justify-content:space-between;}
+.justify-start{justify-content:flex-start;}
+.justify-end{justify-content:flex-end;}
+.inset-0{top:0;right:0;bottom:0;left:0;}
+.top-0{top:0;}
+.z-10{z-index:10;}
+.z-20{z-index:20;}
+.z-50{z-index:50;}
+.grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr));}
+.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+@media (min-width:640px){.sm\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}}
+.gap-1{gap:0.25rem;}
+.gap-1\.5{gap:0.375rem;}
+.gap-2{gap:0.5rem;}
+.gap-3{gap:0.75rem;}
+.gap-4{gap:1rem;}
+.gap-\[6px\]{gap:6px;}
+.p-0{padding:0px;}
+.p-0\.5{padding:0.125rem;}
+.p-1{padding:0.25rem;}
+.p-1\.5{padding:0.375rem;}
+.p-2{padding:0.5rem;}
+.p-2\.5{padding:0.625rem;}
+.p-3{padding:0.75rem;}
+.p-3\.5{padding:0.875rem;}
+.p-4{padding:1rem;}
+.p-5{padding:1.25rem;}
+.p-6{padding:1.5rem;}
+.p-7{padding:1.75rem;}
+.p-8{padding:2rem;}
+.p-9{padding:2.25rem;}
+.p-10{padding:2.5rem;}
+.p-11{padding:2.75rem;}
+.p-12{padding:3rem;}
+.p-13{padding:3.25rem;}
+.p-14{padding:3.5rem;}
+.p-16{padding:4rem;}
+.p-20{padding:5rem;}
+.px-0{padding-left:0px;padding-right:0px;}
+.px-0\.5{padding-left:0.125rem;padding-right:0.125rem;}
+.px-1{padding-left:0.25rem;padding-right:0.25rem;}
+.px-1\.5{padding-left:0.375rem;padding-right:0.375rem;}
+.px-2{padding-left:0.5rem;padding-right:0.5rem;}
+.px-2\.5{padding-left:0.625rem;padding-right:0.625rem;}
+.px-3{padding-left:0.75rem;padding-right:0.75rem;}
+.px-3\.5{padding-left:0.875rem;padding-right:0.875rem;}
+.px-4{padding-left:1rem;padding-right:1rem;}
+.px-5{padding-left:1.25rem;padding-right:1.25rem;}
+.px-6{padding-left:1.5rem;padding-right:1.5rem;}
+.px-7{padding-left:1.75rem;padding-right:1.75rem;}
+.px-8{padding-left:2rem;padding-right:2rem;}
+.px-9{padding-left:2.25rem;padding-right:2.25rem;}
+.px-10{padding-left:2.5rem;padding-right:2.5rem;}
+.px-11{padding-left:2.75rem;padding-right:2.75rem;}
+.px-12{padding-left:3rem;padding-right:3rem;}
+.px-13{padding-left:3.25rem;padding-right:3.25rem;}
+.px-14{padding-left:3.5rem;padding-right:3.5rem;}
+.px-16{padding-left:4rem;padding-right:4rem;}
+.px-20{padding-left:5rem;padding-right:5rem;}
+.py-0{padding-top:0px;padding-bottom:0px;}
+.py-0\.5{padding-top:0.125rem;padding-bottom:0.125rem;}
+.py-1{padding-top:0.25rem;padding-bottom:0.25rem;}
+.py-1\.5{padding-top:0.375rem;padding-bottom:0.375rem;}
+.py-2{padding-top:0.5rem;padding-bottom:0.5rem;}
+.py-2\.5{padding-top:0.625rem;padding-bottom:0.625rem;}
+.py-3{padding-top:0.75rem;padding-bottom:0.75rem;}
+.py-3\.5{padding-top:0.875rem;padding-bottom:0.875rem;}
+.py-4{padding-top:1rem;padding-bottom:1rem;}
+.py-5{padding-top:1.25rem;padding-bottom:1.25rem;}
+.py-6{padding-top:1.5rem;padding-bottom:1.5rem;}
+.py-7{padding-top:1.75rem;padding-bottom:1.75rem;}
+.py-8{padding-top:2rem;padding-bottom:2rem;}
+.py-9{padding-top:2.25rem;padding-bottom:2.25rem;}
+.py-10{padding-top:2.5rem;padding-bottom:2.5rem;}
+.py-11{padding-top:2.75rem;padding-bottom:2.75rem;}
+.py-12{padding-top:3rem;padding-bottom:3rem;}
+.py-13{padding-top:3.25rem;padding-bottom:3.25rem;}
+.py-14{padding-top:3.5rem;padding-bottom:3.5rem;}
+.py-16{padding-top:4rem;padding-bottom:4rem;}
+.py-20{padding-top:5rem;padding-bottom:5rem;}
+.pt-0{padding-top:0px;}
+.pt-0\.5{padding-top:0.125rem;}
+.pt-1{padding-top:0.25rem;}
+.pt-1\.5{padding-top:0.375rem;}
+.pt-2{padding-top:0.5rem;}
+.pt-2\.5{padding-top:0.625rem;}
+.pt-3{padding-top:0.75rem;}
+.pt-3\.5{padding-top:0.875rem;}
+.pt-4{padding-top:1rem;}
+.pt-5{padding-top:1.25rem;}
+.pt-6{padding-top:1.5rem;}
+.pt-7{padding-top:1.75rem;}
+.pt-8{padding-top:2rem;}
+.pt-9{padding-top:2.25rem;}
+.pt-10{padding-top:2.5rem;}
+.pt-11{padding-top:2.75rem;}
+.pt-12{padding-top:3rem;}
+.pt-13{padding-top:3.25rem;}
+.pt-14{padding-top:3.5rem;}
+.pt-16{padding-top:4rem;}
+.pt-20{padding-top:5rem;}
+.pb-0{padding-bottom:0px;}
+.pb-0\.5{padding-bottom:0.125rem;}
+.pb-1{padding-bottom:0.25rem;}
+.pb-1\.5{padding-bottom:0.375rem;}
+.pb-2{padding-bottom:0.5rem;}
+.pb-2\.5{padding-bottom:0.625rem;}
+.pb-3{padding-bottom:0.75rem;}
+.pb-3\.5{padding-bottom:0.875rem;}
+.pb-4{padding-bottom:1rem;}
+.pb-5{padding-bottom:1.25rem;}
+.pb-6{padding-bottom:1.5rem;}
+.pb-7{padding-bottom:1.75rem;}
+.pb-8{padding-bottom:2rem;}
+.pb-9{padding-bottom:2.25rem;}
+.pb-10{padding-bottom:2.5rem;}
+.pb-11{padding-bottom:2.75rem;}
+.pb-12{padding-bottom:3rem;}
+.pb-13{padding-bottom:3.25rem;}
+.pb-14{padding-bottom:3.5rem;}
+.pb-16{padding-bottom:4rem;}
+.pb-20{padding-bottom:5rem;}
+.pl-0{padding-left:0px;}
+.pl-0\.5{padding-left:0.125rem;}
+.pl-1{padding-left:0.25rem;}
+.pl-1\.5{padding-left:0.375rem;}
+.pl-2{padding-left:0.5rem;}
+.pl-2\.5{padding-left:0.625rem;}
+.pl-3{padding-left:0.75rem;}
+.pl-3\.5{padding-left:0.875rem;}
+.pl-4{padding-left:1rem;}
+.pl-5{padding-left:1.25rem;}
+.pl-6{padding-left:1.5rem;}
+.pl-7{padding-left:1.75rem;}
+.pl-8{padding-left:2rem;}
+.pl-9{padding-left:2.25rem;}
+.pl-10{padding-left:2.5rem;}
+.pl-11{padding-left:2.75rem;}
+.pl-12{padding-left:3rem;}
+.pl-13{padding-left:3.25rem;}
+.pl-14{padding-left:3.5rem;}
+.pl-16{padding-left:4rem;}
+.pl-20{padding-left:5rem;}
+.pr-0{padding-right:0px;}
+.pr-0\.5{padding-right:0.125rem;}
+.pr-1{padding-right:0.25rem;}
+.pr-1\.5{padding-right:0.375rem;}
+.pr-2{padding-right:0.5rem;}
+.pr-2\.5{padding-right:0.625rem;}
+.pr-3{padding-right:0.75rem;}
+.pr-3\.5{padding-right:0.875rem;}
+.pr-4{padding-right:1rem;}
+.pr-5{padding-right:1.25rem;}
+.pr-6{padding-right:1.5rem;}
+.pr-7{padding-right:1.75rem;}
+.pr-8{padding-right:2rem;}
+.pr-9{padding-right:2.25rem;}
+.pr-10{padding-right:2.5rem;}
+.pr-11{padding-right:2.75rem;}
+.pr-12{padding-right:3rem;}
+.pr-13{padding-right:3.25rem;}
+.pr-14{padding-right:3.5rem;}
+.pr-16{padding-right:4rem;}
+.pr-20{padding-right:5rem;}
+.m-0{margin:0px;}
+.m-0\.5{margin:0.125rem;}
+.m-1{margin:0.25rem;}
+.m-1\.5{margin:0.375rem;}
+.m-2{margin:0.5rem;}
+.m-2\.5{margin:0.625rem;}
+.m-3{margin:0.75rem;}
+.m-3\.5{margin:0.875rem;}
+.m-4{margin:1rem;}
+.m-5{margin:1.25rem;}
+.m-6{margin:1.5rem;}
+.m-7{margin:1.75rem;}
+.m-8{margin:2rem;}
+.m-9{margin:2.25rem;}
+.m-10{margin:2.5rem;}
+.m-11{margin:2.75rem;}
+.m-12{margin:3rem;}
+.m-13{margin:3.25rem;}
+.m-14{margin:3.5rem;}
+.m-16{margin:4rem;}
+.m-20{margin:5rem;}
+.mx-0{margin-left:0px;margin-right:0px;}
+.mx-0\.5{margin-left:0.125rem;margin-right:0.125rem;}
+.mx-1{margin-left:0.25rem;margin-right:0.25rem;}
+.mx-1\.5{margin-left:0.375rem;margin-right:0.375rem;}
+.mx-2{margin-left:0.5rem;margin-right:0.5rem;}
+.mx-2\.5{margin-left:0.625rem;margin-right:0.625rem;}
+.mx-3{margin-left:0.75rem;margin-right:0.75rem;}
+.mx-3\.5{margin-left:0.875rem;margin-right:0.875rem;}
+.mx-4{margin-left:1rem;margin-right:1rem;}
+.mx-5{margin-left:1.25rem;margin-right:1.25rem;}
+.mx-6{margin-left:1.5rem;margin-right:1.5rem;}
+.mx-7{margin-left:1.75rem;margin-right:1.75rem;}
+.mx-8{margin-left:2rem;margin-right:2rem;}
+.mx-9{margin-left:2.25rem;margin-right:2.25rem;}
+.mx-10{margin-left:2.5rem;margin-right:2.5rem;}
+.mx-11{margin-left:2.75rem;margin-right:2.75rem;}
+.mx-12{margin-left:3rem;margin-right:3rem;}
+.mx-13{margin-left:3.25rem;margin-right:3.25rem;}
+.mx-14{margin-left:3.5rem;margin-right:3.5rem;}
+.mx-16{margin-left:4rem;margin-right:4rem;}
+.mx-20{margin-left:5rem;margin-right:5rem;}
+.my-0{margin-top:0px;margin-bottom:0px;}
+.my-0\.5{margin-top:0.125rem;margin-bottom:0.125rem;}
+.my-1{margin-top:0.25rem;margin-bottom:0.25rem;}
+.my-1\.5{margin-top:0.375rem;margin-bottom:0.375rem;}
+.my-2{margin-top:0.5rem;margin-bottom:0.5rem;}
+.my-2\.5{margin-top:0.625rem;margin-bottom:0.625rem;}
+.my-3{margin-top:0.75rem;margin-bottom:0.75rem;}
+.my-3\.5{margin-top:0.875rem;margin-bottom:0.875rem;}
+.my-4{margin-top:1rem;margin-bottom:1rem;}
+.my-5{margin-top:1.25rem;margin-bottom:1.25rem;}
+.my-6{margin-top:1.5rem;margin-bottom:1.5rem;}
+.my-7{margin-top:1.75rem;margin-bottom:1.75rem;}
+.my-8{margin-top:2rem;margin-bottom:2rem;}
+.my-9{margin-top:2.25rem;margin-bottom:2.25rem;}
+.my-10{margin-top:2.5rem;margin-bottom:2.5rem;}
+.my-11{margin-top:2.75rem;margin-bottom:2.75rem;}
+.my-12{margin-top:3rem;margin-bottom:3rem;}
+.my-13{margin-top:3.25rem;margin-bottom:3.25rem;}
+.my-14{margin-top:3.5rem;margin-bottom:3.5rem;}
+.my-16{margin-top:4rem;margin-bottom:4rem;}
+.my-20{margin-top:5rem;margin-bottom:5rem;}
+.mt-0{margin-top:0px;}
+.mt-0\.5{margin-top:0.125rem;}
+.mt-1{margin-top:0.25rem;}
+.mt-1\.5{margin-top:0.375rem;}
+.mt-2{margin-top:0.5rem;}
+.mt-2\.5{margin-top:0.625rem;}
+.mt-3{margin-top:0.75rem;}
+.mt-3\.5{margin-top:0.875rem;}
+.mt-4{margin-top:1rem;}
+.mt-5{margin-top:1.25rem;}
+.mt-6{margin-top:1.5rem;}
+.mt-7{margin-top:1.75rem;}
+.mt-8{margin-top:2rem;}
+.mt-9{margin-top:2.25rem;}
+.mt-10{margin-top:2.5rem;}
+.mt-11{margin-top:2.75rem;}
+.mt-12{margin-top:3rem;}
+.mt-13{margin-top:3.25rem;}
+.mt-14{margin-top:3.5rem;}
+.mt-16{margin-top:4rem;}
+.mt-20{margin-top:5rem;}
+.mb-0{margin-bottom:0px;}
+.mb-0\.5{margin-bottom:0.125rem;}
+.mb-1{margin-bottom:0.25rem;}
+.mb-1\.5{margin-bottom:0.375rem;}
+.mb-2{margin-bottom:0.5rem;}
+.mb-2\.5{margin-bottom:0.625rem;}
+.mb-3{margin-bottom:0.75rem;}
+.mb-3\.5{margin-bottom:0.875rem;}
+.mb-4{margin-bottom:1rem;}
+.mb-5{margin-bottom:1.25rem;}
+.mb-6{margin-bottom:1.5rem;}
+.mb-7{margin-bottom:1.75rem;}
+.mb-8{margin-bottom:2rem;}
+.mb-9{margin-bottom:2.25rem;}
+.mb-10{margin-bottom:2.5rem;}
+.mb-11{margin-bottom:2.75rem;}
+.mb-12{margin-bottom:3rem;}
+.mb-13{margin-bottom:3.25rem;}
+.mb-14{margin-bottom:3.5rem;}
+.mb-16{margin-bottom:4rem;}
+.mb-20{margin-bottom:5rem;}
+.ml-0{margin-left:0px;}
+.ml-0\.5{margin-left:0.125rem;}
+.ml-1{margin-left:0.25rem;}
+.ml-1\.5{margin-left:0.375rem;}
+.ml-2{margin-left:0.5rem;}
+.ml-2\.5{margin-left:0.625rem;}
+.ml-3{margin-left:0.75rem;}
+.ml-3\.5{margin-left:0.875rem;}
+.ml-4{margin-left:1rem;}
+.ml-5{margin-left:1.25rem;}
+.ml-6{margin-left:1.5rem;}
+.ml-7{margin-left:1.75rem;}
+.ml-8{margin-left:2rem;}
+.ml-9{margin-left:2.25rem;}
+.ml-10{margin-left:2.5rem;}
+.ml-11{margin-left:2.75rem;}
+.ml-12{margin-left:3rem;}
+.ml-13{margin-left:3.25rem;}
+.ml-14{margin-left:3.5rem;}
+.ml-16{margin-left:4rem;}
+.ml-20{margin-left:5rem;}
+.mr-0{margin-right:0px;}
+.mr-0\.5{margin-right:0.125rem;}
+.mr-1{margin-right:0.25rem;}
+.mr-1\.5{margin-right:0.375rem;}
+.mr-2{margin-right:0.5rem;}
+.mr-2\.5{margin-right:0.625rem;}
+.mr-3{margin-right:0.75rem;}
+.mr-3\.5{margin-right:0.875rem;}
+.mr-4{margin-right:1rem;}
+.mr-5{margin-right:1.25rem;}
+.mr-6{margin-right:1.5rem;}
+.mr-7{margin-right:1.75rem;}
+.mr-8{margin-right:2rem;}
+.mr-9{margin-right:2.25rem;}
+.mr-10{margin-right:2.5rem;}
+.mr-11{margin-right:2.75rem;}
+.mr-12{margin-right:3rem;}
+.mr-13{margin-right:3.25rem;}
+.mr-14{margin-right:3.5rem;}
+.mr-16{margin-right:4rem;}
+.mr-20{margin-right:5rem;}
+.-mx-4{margin-left:-1rem;margin-right:-1rem;}
+.w-9{width:2.25rem;}
+.h-9{height:2.25rem;}
+.w-10{width:2.5rem;}
+.h-10{height:2.5rem;}
+.w-11{width:2.75rem;}
+.h-11{height:2.75rem;}
+.w-12{width:3rem;}
+.h-12{height:3rem;}
+.w-13{width:3.25rem;}
+.h-13{height:3.25rem;}
+.w-14{width:3.5rem;}
+.h-14{height:3.5rem;}
+.w-16{width:4rem;}
+.h-16{height:4rem;}
+.h-1\.5{height:0.375rem;}
+.w-full{width:100%;}
+.min-w-0{min-width:0px;}
+.min-w-\[70px\]{min-width:70px;}
+.min-w-\[100px\]{min-width:100px;}
+.min-w-\[130px\]{min-width:130px;}
+.min-w-\[52px\]{min-width:52px;}
+.max-w-2xl{max-width:42rem;}
+.max-w-md{max-width:28rem;}
+.mx-auto{margin-left:auto;margin-right:auto;}
+.rounded-lg{border-radius:0.5rem;}
+.rounded-xl{border-radius:0.75rem;}
+.rounded-2xl{border-radius:1rem;}
+.rounded-3xl{border-radius:1.5rem;}
+.rounded-full{border-radius:9999px;}
+.rounded-t-3xl{border-top-left-radius:1.5rem;border-top-right-radius:1.5rem;}
+.border{border-width:1px;border-style:solid;}
+.border-2{border-width:2px;border-style:solid;}
+.border-b{border-bottom-width:1px;border-bottom-style:solid;}
+.border-t{border-top-width:1px;border-top-style:solid;}
+.text-xs{font-size:0.75rem;line-height:1rem;}
+.text-sm{font-size:0.875rem;line-height:1.25rem;}
+.text-base{font-size:1rem;line-height:1.5rem;}
+.text-lg{font-size:1.125rem;line-height:1.75rem;}
+.text-xl{font-size:1.25rem;line-height:1.75rem;}
+.text-2xl{font-size:1.5rem;line-height:2rem;}
+.text-3xl{font-size:1.875rem;line-height:2.25rem;}
+.text-4xl{font-size:2.25rem;line-height:2.5rem;}
+.text-5xl{font-size:3rem;line-height:1;}
+.text-6xl{font-size:3.75rem;line-height:1;}
+.text-\[10px\]{font-size:10px;}
+.text-\[11px\]{font-size:11px;}
+.font-medium{font-weight:500;}
+.font-semibold{font-weight:600;}
+.font-bold{font-weight:700;}
+.tracking-wide{letter-spacing:0.025em;}
+.tracking-widest{letter-spacing:0.1em;}
+.tracking-\[0.2em\]{letter-spacing:0.2em;}
+.tracking-\[0.3em\]{letter-spacing:0.3em;}
+.leading-relaxed{line-height:1.625;}
+.text-center{text-align:center;}
+.text-left{text-align:left;}
+.text-right{text-align:right;}
+.whitespace-nowrap{white-space:nowrap;}
+.break-all{word-break:break-all;}
+.outline-none{outline:none;}
+.shadow-sm{box-shadow:0 1px 2px 0 rgba(0,0,0,0.05);}
+.backdrop-blur{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+.transition-transform{transition-property:transform;transition-duration:150ms;transition-timing-function:cubic-bezier(0.4,0,0.2,1);}
+.transition-colors{transition-property:background-color,border-color,color;transition-duration:150ms;transition-timing-function:cubic-bezier(0.4,0,0.2,1);}
+.active\:scale-90:active{transform:scale(0.9);}
+.active\:scale-95:active{transform:scale(0.95);}
+.active\:scale-\[0\.98\]:active{transform:scale(0.98);}
+button:disabled{cursor:not-allowed;}
+.opacity-10{opacity:0.10;}
+.opacity-15{opacity:0.15;}
+.opacity-20{opacity:0.20;}
+.opacity-30{opacity:0.30;}
+.opacity-35{opacity:0.35;}
+.opacity-40{opacity:0.40;}
+.opacity-45{opacity:0.45;}
+.opacity-50{opacity:0.50;}
+.opacity-55{opacity:0.55;}
+.opacity-60{opacity:0.60;}
+.opacity-70{opacity:0.70;}
+.opacity-80{opacity:0.80;}
+.opacity-90{opacity:0.90;}
+.bg-pine{background-color:#1B4332;}
+.border-pine{border-color:#1B4332;}
+.text-pine{color:#1B4332;}
+.bg-pinedark{background-color:#0F2A1F;}
+.border-pinedark{border-color:#0F2A1F;}
+.text-pinedark{color:#0F2A1F;}
+.bg-parchment{background-color:#F3EFE1;}
+.border-parchment{border-color:#F3EFE1;}
+.text-parchment{color:#F3EFE1;}
+.bg-parchment2{background-color:#EAE3CE;}
+.border-parchment2{border-color:#EAE3CE;}
+.text-parchment2{color:#EAE3CE;}
+.bg-gold{background-color:#6B7B3D;}
+.border-gold{border-color:#6B7B3D;}
+.text-gold{color:#6B7B3D;}
+.bg-ink{background-color:#2B2A25;}
+.border-ink{border-color:#2B2A25;}
+.text-ink{color:#2B2A25;}
+.bg-white{background-color:#FFFFFF;}
+.border-white{border-color:#FFFFFF;}
+.text-white{color:#FFFFFF;}
+.bg-player1{background-color:#C9622B;}
+.border-player1{border-color:#C9622B;}
+.text-player1{color:#C9622B;}
+.bg-player1light{background-color:#F0D9C9;}
+.border-player1light{border-color:#F0D9C9;}
+.text-player1light{color:#F0D9C9;}
+.bg-player2{background-color:#2D6E8E;}
+.border-player2{border-color:#2D6E8E;}
+.text-player2{color:#2D6E8E;}
+.bg-player2light{background-color:#D2E4EC;}
+.border-player2light{border-color:#D2E4EC;}
+.text-player2light{color:#D2E4EC;}
+.bg-player3{background-color:#3D7A46;}
+.border-player3{border-color:#3D7A46;}
+.text-player3{color:#3D7A46;}
+.bg-player3light{background-color:#D7E8D5;}
+.border-player3light{border-color:#D7E8D5;}
+.text-player3light{color:#D7E8D5;}
+.bg-player4{background-color:#7B4B94;}
+.border-player4{border-color:#7B4B94;}
+.text-player4{color:#7B4B94;}
+.bg-player4light{background-color:#E5D9EC;}
+.border-player4light{border-color:#E5D9EC;}
+.text-player4light{color:#E5D9EC;}
+.bg-player5{background-color:#A93F3F;}
+.border-player5{border-color:#A93F3F;}
+.text-player5{color:#A93F3F;}
+.bg-player5light{background-color:#EFD6D6;}
+.border-player5light{border-color:#EFD6D6;}
+.text-player5light{color:#EFD6D6;}
+.bg-player6{background-color:#8A6D1D;}
+.border-player6{border-color:#8A6D1D;}
+.text-player6{color:#8A6D1D;}
+.bg-player6light{background-color:#EDE2C2;}
+.border-player6light{border-color:#EDE2C2;}
+.text-player6light{color:#EDE2C2;}
+.bg-player7{background-color:#1F7A6C;}
+.border-player7{border-color:#1F7A6C;}
+.text-player7{color:#1F7A6C;}
+.bg-player7light{background-color:#D3E8E3;}
+.border-player7light{border-color:#D3E8E3;}
+.text-player7light{color:#D3E8E3;}
+.bg-player8{background-color:#5B6B7A;}
+.border-player8{border-color:#5B6B7A;}
+.text-player8{color:#5B6B7A;}
+.bg-player8light{background-color:#DDE3E8;}
+.border-player8light{border-color:#DDE3E8;}
+.text-player8light{color:#DDE3E8;}
+.bg-gold\/10{background-color:rgba(107,123,61,0.1);}
+.border-gold\/10{border-color:rgba(107,123,61,0.1);}
+.text-gold\/10{color:rgba(107,123,61,0.1);}
+.bg-gold\/40{background-color:rgba(107,123,61,0.4);}
+.border-gold\/40{border-color:rgba(107,123,61,0.4);}
+.text-gold\/40{color:rgba(107,123,61,0.4);}
+.bg-ink\/15{background-color:rgba(43,42,37,0.15);}
+.border-ink\/15{border-color:rgba(43,42,37,0.15);}
+.text-ink\/15{color:rgba(43,42,37,0.15);}
+.bg-ink\/20{background-color:rgba(43,42,37,0.2);}
+.border-ink\/20{border-color:rgba(43,42,37,0.2);}
+.text-ink\/20{color:rgba(43,42,37,0.2);}
+.bg-ink\/30{background-color:rgba(43,42,37,0.3);}
+.border-ink\/30{border-color:rgba(43,42,37,0.3);}
+.text-ink\/30{color:rgba(43,42,37,0.3);}
+.bg-ink\/40{background-color:rgba(43,42,37,0.4);}
+.border-ink\/40{border-color:rgba(43,42,37,0.4);}
+.text-ink\/40{color:rgba(43,42,37,0.4);}
+.bg-ink\/50{background-color:rgba(43,42,37,0.5);}
+.border-ink\/50{border-color:rgba(43,42,37,0.5);}
+.text-ink\/50{color:rgba(43,42,37,0.5);}
+.bg-ink\/60{background-color:rgba(43,42,37,0.6);}
+.border-ink\/60{border-color:rgba(43,42,37,0.6);}
+.text-ink\/60{color:rgba(43,42,37,0.6);}
+.bg-ink\/70{background-color:rgba(43,42,37,0.7);}
+.border-ink\/70{border-color:rgba(43,42,37,0.7);}
+.text-ink\/70{color:rgba(43,42,37,0.7);}
+.bg-parchment\/40{background-color:rgba(243,239,225,0.4);}
+.border-parchment\/40{border-color:rgba(243,239,225,0.4);}
+.text-parchment\/40{color:rgba(243,239,225,0.4);}
+.bg-parchment\/50{background-color:rgba(243,239,225,0.5);}
+.border-parchment\/50{border-color:rgba(243,239,225,0.5);}
+.text-parchment\/50{color:rgba(243,239,225,0.5);}
+.bg-parchment\/60{background-color:rgba(243,239,225,0.6);}
+.border-parchment\/60{border-color:rgba(243,239,225,0.6);}
+.text-parchment\/60{color:rgba(243,239,225,0.6);}
+.bg-parchment\/70{background-color:rgba(243,239,225,0.7);}
+.border-parchment\/70{border-color:rgba(243,239,225,0.7);}
+.text-parchment\/70{color:rgba(243,239,225,0.7);}
+.bg-parchment\/80{background-color:rgba(243,239,225,0.8);}
+.border-parchment\/80{border-color:rgba(243,239,225,0.8);}
+.text-parchment\/80{color:rgba(243,239,225,0.8);}
+.bg-parchment\/95{background-color:rgba(243,239,225,0.95);}
+.border-parchment\/95{border-color:rgba(243,239,225,0.95);}
+.text-parchment\/95{color:rgba(243,239,225,0.95);}
+.bg-white\/10{background-color:rgba(255,255,255,0.1);}
+.border-white\/10{border-color:rgba(255,255,255,0.1);}
+.text-white\/10{color:rgba(255,255,255,0.1);}
+
+  html, body { background: #F3EFE1; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; color: #2B2A25; -webkit-tap-highlight-color: transparent; }
+  .font-display { font-family: 'Fjalla One', sans-serif; letter-spacing: 0.02em; }
+  .ring-cell {
+    width: 44px; height: 44px;
+    border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 18px;
+    position: relative;
+    transition: transform 0.12s ease, background-color 0.15s ease;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  .ring-cell:active { transform: scale(0.9); }
+  .ring-cell.hit { background-color: #ABA495 !important; border-color: #ABA495 !important; }
+  .ring-cell.hit .num { opacity: 0.55; text-decoration: line-through; }
+  .call-ball {
+    width: 52px; height: 52px;
+    border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 22px;
+  }
+  .arrow-slot {
+    min-width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 17px;
+    transition: transform 0.12s ease;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  .arrow-slot:active { transform: scale(0.92); }
+  .pick-btn {
+    width: 36px; height: 36px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fjalla One', sans-serif; font-size: 14px;
+    touch-action: manipulation;
+  }
+  .pick-btn:active { transform: scale(0.88); }
+  .hit-btn:active { transform: scale(0.92); }
+  .count-btn {
+    width: 56px; height: 56px; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Fjalla One', sans-serif; font-size: 22px;
+    touch-action: manipulation;
+  }
+  .count-btn:active { transform: scale(0.92); }
+  .arrow-mark {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .pop-in { animation: popIn 0.18s ease-out; }
+    .dice-in { animation: diceIn 0.3s ease-out; }
+  }
+  @keyframes popIn {
+    0% { transform: scale(0.7); opacity: 0.4; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes diceIn {
+    0% { transform: scale(0.5) rotate(-15deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  .tree-dim { opacity: 0.45; }
+  ::selection { background: #6B7B3D33; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<span aria-hidden="true" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;">
+  Archery Arena – Software und Konzept von Kai Nguyen Gia. © 2026 Kai Nguyen Gia. Alle Rechte vorbehalten.
+</span>
+
+<div id="app" class="max-w-2xl mx-auto px-4 pb-10"></div>
+
+<script type="module">
+  // ===== Firebase Multi-Device Sync =====
+  // WICHTIG: Trage hier deine eigenen Firebase-Projektdaten ein (siehe Anleitung).
+  // Ohne gültige Werte funktioniert nur "Single Device" – der Rest der App bleibt unberührt.
+  const firebaseConfig = {
+    apiKey: "AIzaSyDbE7VCpdQGogjpTPg4jFx5wTtNnvZM1TU",
+    authDomain: "archery-arena.firebaseapp.com",
+    databaseURL: "https://archery-arena-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "archery-arena",
+    storageBucket: "archery-arena.firebasestorage.app",
+    messagingSenderId: "324645093897",
+    appId: "1:324645093897:web:106c0b548e20323dcc6ed8"
+  };
+
+  let fbApp = null, fbDb = null, fbUnsubscribe = null;
+
+  async function fbInit() {
+    if (fbApp) return true;
+    if (firebaseConfig.apiKey.startsWith('TODO_')) return false;
+    try {
+      const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+      const { getDatabase } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+      fbApp = initializeApp(firebaseConfig);
+      fbDb = getDatabase(fbApp);
+      return true;
+    } catch (e) {
+      console.error('Firebase init failed', e);
+      return false;
+    }
+  }
+
+  window.fbPushState = async function (code, stateObj) {
+    const ok = await fbInit();
+    if (!ok) return;
+    const { getDatabase, ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+    try {
+      await set(ref(fbDb, 'sessions/' + code), stateObj);
+    } catch (e) {
+      console.error('Firebase write error', e);
+    }
+  };
+
+  window.fbJoinSession = async function (code, onData) {
+    const ok = await fbInit();
+    if (!ok) { onData(null, 'no-config'); return; }
+    const { ref, onValue, off } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+    if (fbUnsubscribe) fbUnsubscribe();
+    const sessionRef = ref(fbDb, 'sessions/' + code);
+    const listener = onValue(sessionRef, (snapshot) => {
+      onData(snapshot.val(), null);
+    });
+    fbUnsubscribe = () => off(sessionRef, 'value', listener);
+  };
+
+  window.fbFetchOnce = async function (code) {
+    const ok = await fbInit();
+    if (!ok) return null;
+    const { ref, get } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
+    try {
+      const snap = await get(ref(fbDb, 'sessions/' + code));
+      return snap.exists() ? snap.val() : null;
+    } catch (e) {
+      console.error('Firebase fetch error', e);
+      return null;
+    }
+  };
+
+  window.fbLeaveSession = function () {
+    if (fbUnsubscribe) { fbUnsubscribe(); fbUnsubscribe = null; }
+  };
+
+  window.fbConfigured = !firebaseConfig.apiKey.startsWith('TODO_');
+</script>
+
+<script>
+/* ---------- Player color palette (up to 8) ---------- */
+const PLAYER_COLORS = [
+  { name: 'player1', light: 'player1light' },
+  { name: 'player2', light: 'player2light' },
+  { name: 'player3', light: 'player3light' },
+  { name: 'player4', light: 'player4light' },
+  { name: 'player5', light: 'player5light' },
+  { name: 'player6', light: 'player6light' },
+  { name: 'player7', light: 'player7light' },
+  { name: 'player8', light: 'player8light' },
+];
+const MIN_PLAYERS = 1;
+const MAX_PLAYERS = 8;
+const PHONE_KEYPAD_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 10];
+
+/* ---------- Tannenbaum (Spiel 1) config ---------- */
+const ROWS = [
+  { value: 10, count: 1 },
+  { value: 9, count: 1 },
+  { value: 8, count: 2 },
+  { value: 7, count: 3 },
+  { value: 6, count: 4 },
+  { value: 5, count: 5 },
+  { value: 4, count: 4 },
+  { value: 3, count: 3 },
+  { value: 2, count: 2 },
+  { value: 1, count: 1 },
+];
+const TREE_TOTAL = ROWS.reduce((sum, row) => sum + row.count, 0);
+
+function makeTree() {
+  return ROWS.map(row => new Array(row.count).fill(false));
+}
+
+/* ---------- Punktejagd (Spiel 2) config ---------- */
+const MIN_POINTS_ROUNDS = 1;
+const MAX_POINTS_ROUNDS = 5;
+const MIN_POINTS_ARROWS = 3;
+const MAX_POINTS_ARROWS = 9;
+
+function makePointsScores(numPlayers, numArrows, numRounds) {
+  return Array.from({ length: numPlayers }, () =>
+    Array.from({ length: numRounds }, () => new Array(numArrows).fill(null))
+  );
+}
+
+/* ---------- Zahlenlotto (Spiel 3) config ---------- */
+const MIN_LOTTO_ROUNDS = 1;
+const MAX_LOTTO_ROUNDS = 5;
+const MIN_LOTTO_ARROWS = 3;
+const MAX_LOTTO_ARROWS = 6;
+
+function hitPoints(h) {
+  return h === 0 ? 0 : 2 * h - 1;
+}
+
+const LOTTO_COLORS = [
+  { key: 'weiss', label: 'Weiß', letter: 'W', bg: '#FFFFFF', text: '#2B2A25', border: '#CFCABF' },
+  { key: 'schwarz', label: 'Schwarz', letter: 'S', bg: '#111111', text: '#FFFFFF', border: '#111111' },
+  { key: 'blau', label: 'Blau', letter: 'B', bg: '#2D6E8E', text: '#FFFFFF', border: '#2D6E8E' },
+  { key: 'rot', label: 'Rot', letter: 'R', bg: '#C0392B', text: '#FFFFFF', border: '#C0392B' },
+  { key: 'gelb', label: 'Gelb', letter: 'G', bg: '#F0C419', text: '#2B2A25', border: '#F0C419' },
+];
+
+const FLAG_EASTER_EGGS = [
+  { set: ['blau', 'rot', 'weiss'], flag: '🇫🇷', name: 'Frankreich' },
+  { set: ['gelb', 'rot', 'schwarz'], flag: '🇩🇪', name: 'Deutschland' },
+  { set: ['rot', 'schwarz', 'weiss'], flag: '🇪🇬', name: 'Ägypten' },
+  { set: ['blau', 'gelb'], flag: '🇺🇦', name: 'Ukraine' },
+  { set: ['rot', 'weiss'], flag: '🇵🇱', name: 'Polen' },
+  { set: ['gelb', 'rot'], flag: '🇪🇸', name: 'Spanien' },
+  { set: ['blau', 'weiss'], flag: '🇬🇷', name: 'Griechenland' },
+];
+
+function matchFlagEasterEgg(draws) {
+  const unique = [...new Set(draws)].sort();
+  for (const entry of FLAG_EASTER_EGGS) {
+    const s = [...entry.set].sort();
+    if (s.length === unique.length && s.every((v, i) => v === unique[i])) return entry;
+  }
+  return null;
+}
+
+function maxRepeatForCount(count) {
+  return count <= 4 ? 2 : 3;
+}
+function isValidColorDraw(draws, maxRepeat) {
+  const counts = {};
+  draws.forEach(k => { counts[k] = (counts[k] || 0) + 1; });
+  return Object.values(counts).every(c => c <= maxRepeat);
+}
+function drawLottoColors(count) {
+  const maxRepeat = maxRepeatForCount(count);
+  let draws, attempts = 0;
+  do {
+    draws = Array.from({ length: count }, () => LOTTO_COLORS[Math.floor(Math.random() * LOTTO_COLORS.length)].key);
+    attempts++;
+  } while (!isValidColorDraw(draws, maxRepeat) && attempts < 300);
+  return draws;
+}
+function drawLottoCall(variant, count) {
+  if (variant === 'club') return drawLottoColors(count);
+  return Array.from({ length: count }, () => 1 + Math.floor(Math.random() * 10));
+}
+
+function makeLottoState(numPlayers, numRounds) {
+  return {
+    calls: new Array(numRounds).fill(null),
+    scores: Array.from({ length: numPlayers }, () => new Array(numRounds).fill(null)),
+  };
+}
+
+/* ---------- Nullschuss (Spiel 4) config ---------- */
+const NULL_START_OPTIONS = [401, 301, 201];
+const MIN_NULL_ARROWS = 1;
+const MAX_NULL_ARROWS = 10;
+
+function nextActiveNullPlayer(current) {
+  const n = state.numPlayers;
+  for (let i = 1; i <= n; i++) {
+    const cand = (current + i) % n;
+    if (!state.nullFinishOrder.includes(cand) && !isPaused(cand)) return cand;
+  }
+  return current;
+}
+
+function defaultNames(n) {
+  return Array.from({ length: n }, (_, i) => `Spieler ${i + 1}`);
+}
+
+/* ---------- Dauerhafte Nutzer-Anlage (Vorname, Nachname, Arena-Name) ---------- */
+const USER_PROFILES_KEY = 'archeryArenaUserProfiles_v1';
+
+function loadUserProfiles() {
+  try {
+    const raw = localStorage.getItem(USER_PROFILES_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveUserProfiles(list) {
+  try { localStorage.setItem(USER_PROFILES_KEY, JSON.stringify(list)); } catch (e) {}
+}
+
+/* ---------- Lokale Session-Wiederherstellung: mehrere Sessions (max. 48h) ---------- */
+const LOCAL_SESSIONS_KEY = 'archeryArenaSessions_v1';
+const SESSION_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+const MAX_SAVED_SESSIONS = 12;
+
+function buildSessionLabel() {
+  const parts = [];
+  if (state.mode && GAME_LABELS[state.mode]) parts.push(GAME_LABELS[state.mode].name);
+  if (state.numPlayers) parts.push(`${state.numPlayers} Spieler`);
+  return parts.join(' · ') || 'Neue Session';
+}
+
+function loadAllLocalSessions() {
+  try {
+    const raw = localStorage.getItem(LOCAL_SESSIONS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter(s => Date.now() - s.savedAt <= SESSION_MAX_AGE_MS)
+      .sort((a, b) => b.savedAt - a.savedAt);
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveLocalSession(code, role) {
+  try {
+    const list = loadAllLocalSessions();
+    const idx = list.findIndex(s => s.code === code);
+    const createdAt = idx !== -1 && list[idx].createdAt ? list[idx].createdAt : Date.now();
+    const entry = { code, role, savedAt: Date.now(), createdAt, label: buildSessionLabel() };
+    if (idx !== -1) list.splice(idx, 1);
+    list.unshift(entry);
+    localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(list.slice(0, MAX_SAVED_SESSIONS)));
+  } catch (e) {}
+}
+
+function removeLocalSession(code) {
+  try {
+    const list = loadAllLocalSessions().filter(s => s.code !== code);
+    localStorage.setItem(LOCAL_SESSIONS_KEY, JSON.stringify(list));
+  } catch (e) {}
+}
+
+function timeAgoLabel(ts) {
+  const diffMin = Math.round((Date.now() - ts) / 60000);
+  if (diffMin < 1) return 'gerade eben';
+  if (diffMin < 60) return `vor ${diffMin} Min.`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `vor ${diffH} Std.`;
+  const diffD = Math.round(diffH / 24);
+  return `vor ${diffD} Tag${diffD === 1 ? '' : 'en'}`;
+}
+
+function formatDateTime(ts) {
+  const d = new Date(ts);
+  const datePart = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timePart = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart}, ${timePart} Uhr`;
+}
+
+let sessionOpToken = 0;
+let resumingCode = null;
+
+async function resumeAsHost(code) {
+  if (resumingCode) return; // schon eine Anfrage aktiv - erst abwarten
+  resumingCode = code;
+  const myToken = ++sessionOpToken;
+  render();
+
+  let data = null;
+  if (typeof window.fbFetchOnce === 'function') {
+    data = await window.fbFetchOnce(code);
+  }
+
+  if (myToken !== sessionOpToken) {
+    // eine neuere Anfrage hat diese überholt - Ergebnis verwerfen
+    resumingCode = null;
+    return;
+  }
+
+  if (data && data._lastUpdated && (Date.now() - data._lastUpdated > SESSION_MAX_AGE_MS)) {
+    data = null;
+  }
+  if (data) {
+    Object.assign(state, data);
+  }
+  state.sessionCode = code;
+  state.isHost = true;
+  state.isSpectator = false;
+  state.deviceMode = 'multi';
+  if (!data) {
+    state.screen = 'player-count';
+  }
+  saveLocalSession(code, 'host');
+  resumingCode = null;
+  render();
+}
+
+/* ---------- Statistik ---------- */
+const STATS_KEY = 'archeryArenaStats_v1';
+const GAME_LABELS = {
+  tree: { name: 'Tannenbaum', icon: '🎄' },
+  points: { name: 'Punktejagd', icon: '🏹' },
+  lotto: { name: 'Zahlenlotto', icon: '🎲' },
+  null: { name: 'Nullschuss', icon: '🎯' },
+};
+
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function loadStats() {
+  try {
+    const raw = localStorage.getItem(STATS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    return [];
+  }
+}
+function pruneStats(stats) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 6);
+  cutoff.setHours(0, 0, 0, 0);
+  return stats.filter(s => new Date(s.date + 'T00:00:00') >= cutoff);
+}
+function saveStats(stats) {
+  const pruned = pruneStats(stats);
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(pruned)); } catch (e) {}
+  return pruned;
+}
+function recordGameResult(game, winnerText) {
+  let stats = loadStats();
+  stats.push({
+    date: todayISO(),
+    time: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+    game,
+    players: state.playerNames.slice(0, state.numPlayers),
+    winner: winnerText,
+  });
+  saveStats(stats);
+}
+function formatStatsDate(dateStr) {
+  const today = todayISO();
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  const yestISO = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+  if (dateStr === today) return 'Heute';
+  if (dateStr === yestISO) return 'Gestern';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+}
+
+/* ---------- Global state ---------- */
+let state = {
+  screen: 'device-mode',
+  deviceMode: null,
+  isHost: false,
+  isSpectator: false,
+  sessionCode: null,
+  joinTimedOut: false,
+  _receivedAnyData: false,
+  prefillJoinCode: null,
+  entitlement: 'multi', // 'none' | 'single' | 'multi' - wird ggf. von der iOS-App via URL-Parameter gesetzt
+  editingUserId: null,
+  userPickerForIndex: null,
+
+  numPlayers: 2,
+  mode: null,
+  playerNames: defaultNames(2),
+  numArrows: 3,
+  numRoundsPoints: 3,
+  numRoundsLotto: 3,
+  lottoArrowsPerRound: 3,
+  pausedPlayers: [],
+
+  // tree game
+  trees: [],
+  active: 0,
+  history: [],
+  treeFinishOrder: [],
+
+  // points game
+  pointsScores: [],
+  pointsRound: 0,
+  picker: null,
+  pointsHistory: [],
+
+  // lotto game
+  lottoVariant: 'club',
+  lottoCalls: [],
+  lottoScores: [],
+  lottoRound: 0,
+  lottoHistory: [],
+
+  // nullschuss game
+  nullStartScore: 401,
+  nullArrowsPerTurn: 3,
+  nullScores: [],
+  nullArrowsUsed: [],
+  nullActive: 0,
+  nullTurnArrows: [],
+  nullFinishOrder: [],
+  nullHistory: [],
+  nullBustMessage: null,
+
+  // Stechen (Tiebreak) - gemeinsam für Punktejagd & Zahlenlotto
+  tiebreak: null,
+
+  treeStatsRecorded: false,
+  pointsStatsRecorded: false,
+  lottoStatsRecorded: false,
+  nullStatsRecorded: false,
+};
+
+function isPaused(p) {
+  return state.pausedPlayers.includes(p);
+}
+function activePlayerIndices() {
+  return [...Array(state.numPlayers).keys()].filter(p => !isPaused(p));
+}
+function pauseButtonHtml(p, variant) {
+  const paused = isPaused(p);
+  const base = 'text-[11px] px-2 py-1 rounded-lg border font-medium whitespace-nowrap';
+  const cls = paused ? `${base} border-gold text-gold bg-gold/10` : `${base} border-ink/15 text-ink/40`;
+  return `<button data-action="toggle-pause" data-player="${p}" class="${cls}">${paused ? '▶ Zurück' : '⏸ Pause'}</button>`;
+}
+
+function isTreeComplete(tree) {
+  return tree.every(row => row.every(cell => cell === true));
+}
+function totalHits(tree) {
+  return tree.reduce((sum, row) => sum + row.filter(Boolean).length, 0);
+}
+function roundTotal(player, round) {
+  return state.pointsScores[player][round].reduce((s, v) => s + (v === null ? 0 : v), 0);
+}
+function grandTotal(player) {
+  let sum = 0;
+  for (let r = 0; r < state.numRoundsPoints; r++) sum += roundTotal(player, r);
+  return sum;
+}
+function allPointsFilled() {
+  return activePlayerIndices().every(p => state.pointsScores[p].every(round => round.every(v => v !== null)));
+}
+
+function lottoRoundPoints(player, round) {
+  const hits = state.lottoScores[player][round];
+  return hits === null ? 0 : hitPoints(hits);
+}
+function lottoGrandTotal(player) {
+  let sum = 0;
+  for (let r = 0; r < state.numRoundsLotto; r++) sum += lottoRoundPoints(player, r);
+  return sum;
+}
+function allLottoFilled() {
+  const callsDone = state.lottoCalls.every(c => c !== null);
+  const scoresDone = activePlayerIndices().every(p => state.lottoScores[p].every(v => v !== null));
+  return callsDone && scoresDone;
+}
+
+/* ---------- Stechen (Tiebreak) ---------- */
+function computeTotalsMap(game) {
+  const map = {};
+  for (let p = 0; p < state.numPlayers; p++) {
+    map[p] = game === 'points' ? grandTotal(p) : lottoGrandTotal(p);
+  }
+  return map;
+}
+
+function maybeStartTiebreak(game) {
+  if (state.tiebreak) return;
+  const active = activePlayerIndices();
+  if (active.length < 2) return;
+  const totals = computeTotalsMap(game);
+  const max = Math.max(...active.map(p => totals[p]));
+  const tied = active.filter(p => totals[p] === max);
+  if (tied.length < 2) return;
+
+  const maxAttempts = game === 'points' ? state.numArrows : state.lottoArrowsPerRound;
+  state.tiebreak = {
+    game,
+    lottoVariant: game === 'lotto' ? state.lottoVariant : null,
+    contenders: tied,
+    eliminationRounds: [],
+    attempt: 0,
+    maxAttempts,
+    currentCall: null,
+    answers: {},
+    finished: false,
+    resultTiers: null,
+  };
+  if (game === 'lotto') {
+    state.tiebreak.currentCall = state.lottoVariant === 'club' ? drawLottoColors(1)[0] : (1 + Math.floor(Math.random() * 10));
+  }
+}
+
+function evaluateTiebreakAttempt() {
+  const tb = state.tiebreak;
+  const answered = tb.contenders.every(p => tb.answers[p] !== undefined);
+  if (!answered) return;
+
+  let bestGroup;
+  if (tb.game === 'points') {
+    const maxVal = Math.max(...tb.contenders.map(p => tb.answers[p]));
+    bestGroup = tb.contenders.filter(p => tb.answers[p] === maxVal);
+  } else {
+    const hits = tb.contenders.filter(p => tb.answers[p] === true);
+    bestGroup = hits.length > 0 ? hits : tb.contenders.slice();
+  }
+
+  const eliminated = tb.contenders.filter(p => !bestGroup.includes(p));
+  if (eliminated.length > 0) tb.eliminationRounds.push(eliminated);
+  tb.contenders = bestGroup;
+  tb.attempt++;
+  tb.answers = {};
+
+  if (tb.contenders.length === 1 || tb.attempt >= tb.maxAttempts) {
+    finalizeTiebreak();
+  } else if (tb.game === 'lotto') {
+    tb.currentCall = tb.lottoVariant === 'club' ? drawLottoColors(1)[0] : (1 + Math.floor(Math.random() * 10));
+  }
+}
+
+function finalizeTiebreak() {
+  const tb = state.tiebreak;
+  tb.finished = true;
+  const tiers = [tb.contenders.slice()];
+  for (let i = tb.eliminationRounds.length - 1; i >= 0; i--) tiers.push(tb.eliminationRounds[i]);
+  tb.resultTiers = tiers;
+
+  const flagField = tb.game === 'points' ? 'pointsStatsRecorded' : 'lottoStatsRecorded';
+  if (!state[flagField]) {
+    const winnerNames = tiers[0].map(p => state.playerNames[p]).join(' & ');
+    recordGameResult(tb.game, tiers[0].length > 1 ? winnerNames + ' (geteilt)' : winnerNames);
+    state[flagField] = true;
+  }
+}
+
+function buildFinalRanking(game) {
+  const totals = computeTotalsMap(game);
+  const active = activePlayerIndices();
+  const byTotal = {};
+  active.forEach(p => { (byTotal[totals[p]] = byTotal[totals[p]] || []).push(p); });
+  const totalKeys = Object.keys(byTotal).map(Number).sort((a, b) => b - a);
+  let order = [];
+  let tiebreakTierBoundaries = null;
+  totalKeys.forEach((t, gi) => {
+    let group = byTotal[t];
+    if (gi === 0 && group.length > 1 && state.tiebreak && state.tiebreak.finished && state.tiebreak.game === game) {
+      const flat = state.tiebreak.resultTiers.flat();
+      group = flat.filter(p => group.includes(p));
+      tiebreakTierBoundaries = state.tiebreak.resultTiers.map(t2 => t2.length);
+    }
+    order = order.concat(group);
+  });
+  return { order, totals, tiebreakTierBoundaries };
+}
+
+function assignRanksForFinal(order, totals, tiebreakTierBoundaries) {
+  const ranks = {};
+  let rank = 1;
+  let i = 0;
+  if (tiebreakTierBoundaries) {
+    tiebreakTierBoundaries.forEach(size => {
+      for (let k = 0; k < size; k++) { ranks[order[i]] = rank; i++; }
+      rank += size;
+    });
+  }
+  while (i < order.length) {
+    const t = totals[order[i]];
+    let j = i;
+    while (j < order.length && totals[order[j]] === t) { ranks[order[j]] = rank; j++; }
+    rank += (j - i);
+    i = j;
+  }
+  return ranks;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  let inner;
+  if (state.screen === 'device-mode') inner = renderDeviceMode();
+  else if (state.screen === 'multi-choice') inner = renderMultiChoice();
+  else if (state.screen === 'user-management') inner = renderUserManagement();
+  else if (state.screen === 'user-edit') inner = renderUserEdit();
+  else if (state.screen === 'sessions-list') inner = renderSessionsList();
+  else if (state.screen === 'host-code') inner = renderHostCodeScreen();
+  else if (state.screen === 'join-code') inner = renderJoinScreen();
+  else if (state.screen === 'spectator-waiting') inner = renderSpectatorWaiting();
+  else if (state.screen === 'player-count') inner = renderPlayerCount();
+  else if (state.screen === 'mode') inner = renderModeSelect();
+  else if (state.screen === 'setup') inner = renderSetup();
+  else if (state.screen === 'game-tree') inner = renderTreeGame();
+  else if (state.screen === 'game-points') inner = renderPointsGame();
+  else if (state.screen === 'game-lotto') inner = renderLottoGame();
+  else if (state.screen === 'game-null') inner = renderNullGame();
+  else if (state.screen === 'stats') inner = renderStats();
+  else inner = '';
+
+  app.innerHTML = (state.deviceMode === 'multi' && state.sessionCode ? renderDeviceBadge() : '') + inner;
+
+  if (state.deviceMode === 'multi' && state.isHost && state.sessionCode && typeof window.fbPushState === 'function') {
+    try {
+      const payload = JSON.parse(JSON.stringify(state));
+      payload._lastUpdated = Date.now();
+      window.fbPushState(state.sessionCode, payload);
+      saveLocalSession(state.sessionCode, 'host');
+    } catch (e) {}
+  }
+}
+
+/* ---------- Device mode / Multi-Device screens ---------- */
+function renderDeviceMode() {
+  const multiLocked = state.entitlement !== 'multi';
+  return `
+    <div class="pt-16 pb-10 text-center">
+      <img src="icon.png" alt="Archery Arena Logo" class="mx-auto mb-4 rounded-2xl shadow-sm" style="width:96px;height:96px;">
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">Bogenschießen</p>
+      <h1 class="font-display text-5xl text-pinedark mb-2">Archery Arena</h1>
+      <p class="text-ink/60 text-sm">Wie wollt ihr spielen?</p>
+    </div>
+    <button data-action="choose-single"
+      class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
+      <p class="font-display text-2xl text-pinedark mb-1">📱 Single Device</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Alle spielen zusammen an einem Handy oder Tablet – wie bisher.</p>
+    </button>
+    <button data-action="${multiLocked ? 'locked-multi' : 'choose-multi'}"
+      class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 active:scale-[0.98] transition-transform ${multiLocked ? 'opacity-60' : ''}">
+      <p class="font-display text-2xl text-pinedark mb-1">🌐 Multi Device${multiLocked ? ' 🔒' : ''}</p>
+      <p class="text-sm text-ink/60 leading-relaxed">${multiLocked ? 'Nur mit Multi-Device-Abo verfügbar. Antippen zum Freischalten.' : 'Ein Gerät führt das Spiel, alle anderen sehen den Stand live mit – über einen gemeinsamen Code.'}</p>
+    </button>
+    <button data-action="go-user-management"
+      class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-4 mt-4 active:scale-[0.98] transition-transform">
+      <p class="font-display text-lg text-pinedark">👤 Nutzer verwalten</p>
+      <p class="text-xs text-ink/50 leading-relaxed">Namen einmal anlegen, bei jedem Spiel schnell auswählen.</p>
+    </button>
+    <a href="mailto:nguyengiakai@gmail.com?subject=Archery%20Arena%20Feedback" class="block text-center text-xs text-ink/30 mt-6">
+      ✉️ Feedback
+    </a>
+  `;
+}
+
+function renderUserManagement() {
+  const profiles = loadUserProfiles();
+  return `
+    <div class="pt-12 pb-6 text-center">
+      <button data-action="back-to-device-mode" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark mb-2">👤 Nutzer verwalten</h1>
+      <p class="text-sm text-ink/60">Einmal anlegen, bei jedem Spiel schnell auswählen</p>
+    </div>
+    <button data-action="new-user"
+      class="w-full h-13 py-3 mb-4 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
+      + Neuer Nutzer
+    </button>
+    ${profiles.length === 0 ? `
+      <p class="text-center text-sm text-ink/50 mt-8">Noch keine Nutzer angelegt.</p>
+    ` : profiles.map(p => `
+      <div class="bg-white rounded-2xl border-2 border-parchment2 p-4 mb-3 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-display text-lg text-pinedark truncate">${escapeHtml(p.nickname || '–')}</p>
+          <p class="text-xs text-ink/50 truncate">${escapeHtml(p.firstName)} ${escapeHtml(p.lastName)}</p>
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <button data-action="edit-user" data-user-id="${p.id}" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">✏️</button>
+          <button data-action="delete-user" data-user-id="${p.id}" class="h-9 w-9 rounded-lg border-2 border-ink/15 text-ink/40 flex items-center justify-center">🗑</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+function renderUserEdit() {
+  const editing = state.editingUserId ? loadUserProfiles().find(p => p.id === state.editingUserId) : null;
+  return `
+    <div class="pt-12 pb-6 text-center">
+      <button data-action="cancel-user-edit" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark mb-2">${editing ? 'Nutzer bearbeiten' : 'Neuer Nutzer'}</h1>
+    </div>
+    <div class="bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
+      <label class="block mb-4">
+        <span class="text-sm font-medium text-ink/70 mb-1 block">Vorname</span>
+        <input type="text" id="user-firstname-input" value="${editing ? escapeHtml(editing.firstName) : ''}"
+          class="w-full h-12 px-4 rounded-xl border-2 border-parchment2 focus:border-gold outline-none text-base font-medium" maxlength="30">
+      </label>
+      <label class="block mb-4">
+        <span class="text-sm font-medium text-ink/70 mb-1 block">Nachname</span>
+        <input type="text" id="user-lastname-input" value="${editing ? escapeHtml(editing.lastName) : ''}"
+          class="w-full h-12 px-4 rounded-xl border-2 border-parchment2 focus:border-gold outline-none text-base font-medium" maxlength="30">
+      </label>
+      <label class="block mb-6">
+        <span class="text-sm font-medium text-ink/70 mb-1 block">Arena-Name (Anzeigename im Spiel)</span>
+        <input type="text" id="user-nickname-input" value="${editing ? escapeHtml(editing.nickname) : ''}"
+          class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium" maxlength="24" placeholder="z. B. Falkenauge">
+      </label>
+      <button data-action="save-user"
+        class="w-full h-13 py-3 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform mb-3">
+        Speichern
+      </button>
+      ${editing ? `
+        <button data-action="delete-user" data-user-id="${editing.id}"
+          class="w-full h-11 rounded-xl border-2 border-ink/15 text-ink/50 font-medium text-sm">
+          Nutzer löschen
+        </button>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderMultiChoice() {
+  const list = loadAllLocalSessions();
+  return `
+    <div class="pt-12 pb-6 text-center">
+      <button data-action="back-to-device-mode" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark">Multi Device</h1>
+    </div>
+    ${list.length > 0 ? `
+      <button data-action="go-sessions-list"
+        class="w-full text-left bg-white rounded-2xl border-2 border-gold p-5 mb-4 active:scale-[0.98] transition-transform">
+        <p class="font-display text-2xl text-pinedark mb-1">📂 Meine Sessions (${list.length})</p>
+        <p class="text-sm text-ink/60 leading-relaxed">Frühere Sessions ansehen und fortsetzen – z. B. wenn eine Gruppe zwischendurch pausiert hat.</p>
+      </button>
+    ` : ''}
+    <button data-action="host-session"
+      class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
+      <p class="font-display text-2xl text-pinedark mb-1">🎯 Neue Session starten</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Dieses Gerät steuert das Spiel und bekommt einen Code zum Weitergeben.</p>
+    </button>
+    <button data-action="show-join-screen"
+      class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 active:scale-[0.98] transition-transform">
+      <p class="font-display text-2xl text-pinedark mb-1">🔑 Session beitreten</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Code eingeben und den Spielstand live mitverfolgen (nur Zuschauen).</p>
+    </button>
+  `;
+}
+
+function joinUrlForCode(code) {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('code', code);
+  return url.toString();
+}
+function qrImageUrl(data) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(data)}`;
+}
+
+function renderSessionsList() {
+  const list = loadAllLocalSessions();
+  return `
+    <div class="pt-12 pb-6 text-center">
+      <button data-action="back-to-multi-choice" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark mb-2">Meine Sessions</h1>
+      <p class="text-sm text-ink/60">Zuletzt genutzte Sessions auf diesem Gerät (max. 48h gespeichert)</p>
+    </div>
+    ${list.length === 0 ? `
+      <p class="text-center text-sm text-ink/50 mt-10">Keine gespeicherten Sessions gefunden.</p>
+    ` : list.map(s => {
+      const isLoading = resumingCode === s.code;
+      const disabled = resumingCode !== null;
+      return `
+      <div class="bg-white rounded-2xl border-2 ${isLoading ? 'border-gold' : 'border-parchment2'} p-4 mb-3 flex items-center justify-between gap-3">
+        <button data-action="resume-session" data-code="${s.code}" data-role="${s.role}" ${disabled ? 'disabled' : ''}
+          class="text-left flex-1 active:scale-[0.98] transition-transform ${disabled && !isLoading ? 'opacity-40' : ''}">
+          <p class="font-display text-xl text-pinedark">Code ${s.code}${isLoading ? ' · lädt...' : ''}</p>
+          <p class="text-xs text-ink/50 mt-0.5">${escapeHtml(s.label || 'Session')} · ${s.role === 'host' ? '🎯 Host' : '👁 Zuschauer'}</p>
+          <p class="text-[11px] text-ink/40 mt-0.5">Gestartet: ${formatDateTime(s.createdAt || s.savedAt)} · zuletzt aktiv ${timeAgoLabel(s.savedAt)}</p>
+        </button>
+        <button data-action="remove-session" data-code="${s.code}" ${disabled ? 'disabled' : ''}
+          class="h-9 w-9 rounded-lg border-2 border-ink/15 text-ink/40 flex items-center justify-center shrink-0 ${disabled ? 'opacity-40' : ''}">🗑</button>
+      </div>
+    `;
+    }).join('')}
+  `;
+}
+
+function renderHostCodeScreen() {
+  const joinUrl = joinUrlForCode(state.sessionCode);
+  return `
+    <div class="pt-12 pb-8 text-center">
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">Session-Code</p>
+      <div class="bg-white rounded-2xl border-2 border-gold py-6 px-6 my-4">
+        <p class="font-display text-5xl text-pinedark tracking-[0.2em] mb-4">${state.sessionCode}</p>
+        <img src="${qrImageUrl(joinUrl)}" alt="QR-Code zum Beitreten" class="mx-auto rounded-xl border border-parchment2" width="180" height="180">
+        <p class="text-[11px] text-ink/40 mt-3 break-all leading-relaxed">${escapeHtml(joinUrl)}</p>
+      </div>
+      <p class="text-sm text-ink/60 mb-8 px-2">QR-Code scannen oder Code eintippen – andere Geräte sehen den Spielstand dann live mit.</p>
+      <button data-action="continue-after-host"
+        class="w-full h-13 py-3 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
+        Weiter
+      </button>
+    </div>
+  `;
+}
+
+function renderJoinScreen() {
+  return `
+    <div class="pt-12 pb-6 text-center">
+      <button data-action="back-to-multi-choice" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark mb-2">Session beitreten</h1>
+      <p class="text-sm text-ink/60">Code vom Host eingeben</p>
+    </div>
+    <div class="bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
+      <input type="text" id="join-code-input" maxlength="4" inputmode="numeric" placeholder="0000" value="${state.prefillJoinCode ? escapeHtml(state.prefillJoinCode) : ''}"
+        class="w-full h-16 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-center font-display text-3xl tracking-[0.3em] mb-4">
+      <p id="join-error" class="text-sm text-center mb-4 hidden" style="color:#A93F3F;">Bitte einen 4-stelligen Code eingeben.</p>
+      <button data-action="submit-join-code"
+        class="w-full h-13 py-3 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
+        Beitreten
+      </button>
+    </div>
+  `;
+}
+
+function renderSpectatorWaiting() {
+  return `
+    <div class="pt-20 text-center px-4">
+      <p class="font-display text-2xl text-pinedark mb-2">⏳ Warte auf den Host...</p>
+      <p class="text-sm text-ink/60 mb-6">Code: ${state.sessionCode}</p>
+      ${state.joinTimedOut ? `
+        <p class="text-sm mb-4" style="color:#A93F3F;">Kein Host mit diesem Code gefunden. Code prüfen oder erneut versuchen.</p>
+        <button data-action="back-to-multi-choice" class="h-11 px-6 rounded-xl border-2 border-ink/15 text-sm font-medium">← Zurück</button>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderDeviceBadge() {
+  if (!state.sessionCode) return '';
+  const label = state.isHost ? `Host · Code ${state.sessionCode}` : `Zuschauer · Code ${state.sessionCode}`;
+  return `
+    <div class="flex items-center justify-between bg-gold text-white text-xs font-medium px-3 py-1.5 -mx-4 mb-2">
+      <span>🌐 ${label}</span>
+      <button data-action="leave-session" class="underline">Verlassen</button>
+    </div>
+  `;
+}
+
+/* ---------- Player count select ---------- */
+function renderPlayerCount() {
+  const options = [];
+  for (let n = MIN_PLAYERS; n <= MAX_PLAYERS; n++) options.push(n);
+  return `
+    <div class="pt-12 pb-10 text-center">
+      <button data-action="back-to-device-mode" class="text-sm text-ink/50 mb-6 block">← Zurück</button>
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">Bogenschießen</p>
+      <h1 class="font-display text-5xl text-pinedark mb-2">Archery Arena</h1>
+      <p class="text-ink/60 text-sm">Wie viele Spieler / Teams seid ihr?</p>
+    </div>
+    <div class="flex flex-wrap justify-center gap-3">
+      ${options.map(n => `
+        <button data-action="pick-count" data-count="${n}"
+          class="count-btn border-2 border-pine bg-white text-pine active:scale-95">${n}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+/* ---------- Mode select ---------- */
+function renderModeSelect() {
+  return `
+    <div class="pt-12 pb-6 text-center">
+      <button data-action="back-to-count" class="text-sm text-ink/50 mb-4 block">← Spieleranzahl ändern</button>
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">Archery Arena · ${state.numPlayers} Spieler</p>
+      <h1 class="font-display text-3xl text-pinedark">Wähle euer Spiel</h1>
+    </div>
+
+    <button data-action="pick-mode" data-mode="tree"
+      class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
+      <p class="font-display text-2xl text-pinedark mb-1">🎄 Tannenbaum</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Klassisches Zahlenschießen: Jeder räumt seinen eigenen Tannenbaum ab.</p>
+    </button>
+
+    <button data-action="pick-mode" data-mode="points"
+      class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
+      <p class="font-display text-2xl text-pinedark mb-1">🏹 Punktejagd</p>
+      <p class="text-sm text-ink/60 leading-relaxed">3 Runden, Pfeilanzahl pro Runde wählbar (3–9). Bei Gleichstand: Stechen.</p>
+    </button>
+
+    <button data-action="pick-mode" data-mode="lotto"
+      class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
+      <p class="font-display text-2xl text-pinedark mb-1">🎲 Zahlenlotto</p>
+      <p class="text-sm text-ink/60 leading-relaxed"><strong>Club</strong>: nur Farbzone treffen. <strong>Hardcore</strong>: exakte Zahl. Pfeilanzahl 3–6 wählbar. Bei Gleichstand: Stechen.</p>
+    </button>
+
+    <button data-action="pick-mode" data-mode="null"
+      class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
+      <p class="font-display text-2xl text-pinedark mb-1">🎯 Nullschuss</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Start bei 401, 301 oder 201. Wer als Erstes auf 0 trifft, gewinnt bei Gleichstand mit den wenigsten Pfeilen.</p>
+    </button>
+
+    <button data-action="go-stats" class="w-full text-center text-sm text-ink/50 mt-1 py-2">
+      📊 Statistik ansehen
+    </button>
+  `;
+}
+
+/* ---------- Setup ---------- */
+function syncPlayerNamesFromInputs() {
+  const inputs = document.querySelectorAll('[data-player-input]');
+  inputs.forEach(inp => {
+    const idx = parseInt(inp.dataset.playerInput, 10);
+    const val = inp.value.trim();
+    if (val) state.playerNames[idx] = val;
+  });
+}
+
+function renderSetup() {
+  const isPoints = state.mode === 'points';
+  const isLotto = state.mode === 'lotto';
+  const isNull = state.mode === 'null';
+  const title = isLotto ? '🎲 Setup' : (isPoints ? '🏹 Setup' : (isNull ? '🎯 Setup' : '🎄 Setup'));
+  const label = isLotto ? 'Zahlenlotto' : (isPoints ? 'Punktejagd' : (isNull ? 'Nullschuss' : 'Tannenbaum'));
+
+  return `
+    <div class="pt-10 pb-6">
+      <button data-action="back-to-mode" class="text-sm text-ink/50 mb-4">← Anderes Spiel wählen</button>
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1 text-center">${label}</p>
+      <h1 class="font-display text-4xl text-pinedark text-center">${title}</h1>
+    </div>
+    <div class="bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
+      ${state.playerNames.map((name, i) => {
+        const c = PLAYER_COLORS[i % PLAYER_COLORS.length];
+        return `
+          <label class="block mb-4">
+            <span class="text-sm font-medium text-ink/70 mb-1 block">Spieler / Team ${i + 1}</span>
+            <div class="flex gap-2">
+              <input type="text" data-player-input="${i}" value="${escapeHtml(name)}"
+                class="flex-1 h-12 px-4 rounded-xl border-2 border-${c.light} focus:border-${c.name} outline-none text-base font-medium"
+                placeholder="Name eingeben" maxlength="24">
+              <button type="button" data-action="open-user-picker" data-idx="${i}"
+                class="h-12 w-12 rounded-xl border-2 border-${c.light} text-${c.name} flex items-center justify-center shrink-0" title="Aus Nutzerliste wählen">👤</button>
+            </div>
+          </label>
+        `;
+      }).join('')}
+      ${isPoints ? `
+        <label class="block mb-4 mt-2">
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Anzahl Runden (${MIN_POINTS_ROUNDS}–${MAX_POINTS_ROUNDS})</span>
+          <input type="number" id="num-points-rounds-input" value="${state.numRoundsPoints}" min="${MIN_POINTS_ROUNDS}" max="${MAX_POINTS_ROUNDS}"
+            class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
+        </label>
+        <label class="block mb-6">
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Pfeile pro Runde (${MIN_POINTS_ARROWS}–${MAX_POINTS_ARROWS})</span>
+          <input type="number" id="num-arrows-input" value="${state.numArrows}" min="${MIN_POINTS_ARROWS}" max="${MAX_POINTS_ARROWS}"
+            class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
+        </label>
+      ` : ''}
+      ${isLotto ? `
+        <div class="mb-4 mt-2">
+          <span class="text-sm font-medium text-ink/70 mb-2 block">Spielmodus</span>
+          <div class="flex gap-2">
+            <button data-action="select-lotto-variant" data-value="club"
+              class="flex-1 py-2 rounded-xl border-2 flex flex-col items-center transition-colors
+                ${state.lottoVariant === 'club' ? 'bg-pine border-pine text-parchment' : 'bg-white border-parchment2 text-ink/60'}">
+              <span class="font-display text-sm">🎨 Club</span>
+              <span class="text-[10px] opacity-80">nur Farbe</span>
+            </button>
+            <button data-action="select-lotto-variant" data-value="hardcore"
+              class="flex-1 py-2 rounded-xl border-2 flex flex-col items-center transition-colors
+                ${state.lottoVariant === 'hardcore' ? 'bg-pine border-pine text-parchment' : 'bg-white border-parchment2 text-ink/60'}">
+              <span class="font-display text-sm">🎯 Hardcore</span>
+              <span class="text-[10px] opacity-80">exakte Zahl</span>
+            </button>
+          </div>
+        </div>
+        <label class="block mb-4">
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Anzahl Runden (max. ${MAX_LOTTO_ROUNDS})</span>
+          <input type="number" id="num-rounds-input" value="${state.numRoundsLotto}" min="${MIN_LOTTO_ROUNDS}" max="${MAX_LOTTO_ROUNDS}"
+            class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
+        </label>
+        <label class="block mb-6">
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Pfeile pro Runde (${MIN_LOTTO_ARROWS}–${MAX_LOTTO_ARROWS})</span>
+          <input type="number" id="num-lotto-arrows-input" value="${state.lottoArrowsPerRound}" min="${MIN_LOTTO_ARROWS}" max="${MAX_LOTTO_ARROWS}"
+            class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
+        </label>
+      ` : ''}
+      ${isNull ? `
+        <div class="mb-4 mt-2">
+          <span class="text-sm font-medium text-ink/70 mb-2 block">Startpunktzahl</span>
+          <div class="flex gap-2">
+            ${NULL_START_OPTIONS.map(v => `
+              <button data-action="select-null-start" data-value="${v}"
+                class="flex-1 h-12 rounded-xl font-display text-base border-2 transition-colors
+                  ${state.nullStartScore === v ? 'bg-pine border-pine text-parchment' : 'bg-white border-parchment2 text-ink/60'}">
+                ${v}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+        <label class="block mb-6">
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Pfeile pro Zug</span>
+          <input type="number" id="num-null-arrows-input" value="${state.nullArrowsPerTurn}" min="${MIN_NULL_ARROWS}" max="${MAX_NULL_ARROWS}"
+            class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
+        </label>
+      ` : ''}
+      ${!isPoints && !isLotto && !isNull ? '<div class="mb-2"></div>' : ''}
+      <button data-action="start-game"
+        class="w-full h-13 py-3 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
+        Spiel starten
+      </button>
+    </div>
+    ${renderUserPickerOverlay()}
+  `;
+}
+
+function renderUserPickerOverlay() {
+  if (state.userPickerForIndex === null) return '';
+  const idx = state.userPickerForIndex;
+  const profiles = loadUserProfiles();
+  return `
+    <div data-action="close-user-picker" class="fixed inset-0 z-50 flex items-end justify-center" style="background:rgba(15,42,31,0.55);">
+      <div class="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 pop-in" style="max-height:70vh;overflow-y:auto;">
+        <div class="w-10 h-1.5 bg-parchment2 rounded-full mx-auto mb-4"></div>
+        <p class="text-center font-display text-lg text-pinedark mb-4">Spieler auswählen</p>
+        ${profiles.length === 0 ? `
+          <p class="text-center text-sm text-ink/50 mb-2">Noch keine gespeicherten Nutzer.</p>
+          <p class="text-center text-xs text-ink/40 mb-4">Lege welche im Startmenü unter „👤 Nutzer verwalten" an.</p>
+        ` : profiles.map(p => `
+          <button data-action="pick-user-for-slot" data-user-id="${p.id}" data-idx="${idx}"
+            class="w-full text-left bg-parchment rounded-xl px-4 py-3 mb-2 active:scale-[0.98] transition-transform">
+            <p class="font-display text-lg text-pinedark">${escapeHtml(p.nickname || (p.firstName + ' ' + p.lastName))}</p>
+            <p class="text-xs text-ink/50">${escapeHtml(p.firstName)} ${escapeHtml(p.lastName)}</p>
+          </button>
+        `).join('')}
+        <button data-action="close-user-picker" class="w-full h-12 mt-2 rounded-xl border-2 border-ink/15 text-ink/50 font-display">
+          Schließen
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- Ranking (gemeinsam für alle Spiele) ---------- */
+function renderRankingBanner(entries, title) {
+  const medals = ['🥇', '🥈', '🥉'];
+  return `
+    <div class="mt-4 rounded-2xl bg-pine text-parchment px-5 py-4 pop-in">
+      <p class="font-display text-xl text-center mb-3">${title || '🏆 Rangliste'}</p>
+      <div class="flex flex-col gap-1.5">
+        ${entries.map(e => `
+          <div class="flex items-center justify-between text-sm gap-3">
+            <span class="truncate">${medals[e.rank - 1] || e.rank + '.'} ${escapeHtml(e.label)}</span>
+            <span class="font-display whitespace-nowrap">${e.value}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- Tree game ---------- */
+function renderTreeGame() {
+  const n = state.numPlayers;
+  const canUndo = state.history.length > 0;
+
+  return `
+    ${state.treeFinishOrder.length ? renderTreeRanking() : ''}
+    <div class="sticky top-0 z-10 bg-parchment/95 backdrop-blur pt-4 pb-3 -mx-4 px-4 border-b border-parchment2">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <button data-action="go-home" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">🏠</button>
+          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="Zurück zum Spielmenü">🔁</button>` : ''}
+          <p class="font-display text-2xl text-pinedark">Tannenbaum</p>
+        </div>
+        <div class="flex gap-2">
+          <button data-action="undo" ${!canUndo ? 'disabled' : ''}
+            class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium flex items-center gap-1 ${!canUndo ? 'opacity-35' : 'active:scale-95'}">
+            ↺ Undo
+          </button>
+          <button data-action="reset"
+            class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium active:scale-95">
+            ⟲ Reset
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        ${[...Array(n).keys()].map(p => {
+          const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
+          const isActive = state.active === p;
+          const paused = isPaused(p);
+          return `
+            <div class="flex items-center gap-1 flex-1 min-w-[130px]">
+              <button data-action="select-player" data-player="${p}" ${paused ? 'disabled' : ''}
+                class="flex-1 h-12 rounded-xl font-display text-base border-2 flex items-center justify-center gap-1 transition-colors
+                  ${paused ? 'opacity-40 bg-parchment2 border-parchment2 text-ink/40' : (isActive ? `bg-${c.name} border-${c.name} text-white` : `bg-${c.light} border-${c.light} text-${c.name}`)}">
+                ${isActive && !paused ? '🎯 ' : ''}${escapeHtml(state.playerNames[p])}
+              </button>
+              ${pauseButtonHtml(p)}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+      ${[...Array(n).keys()].map(p => renderTreeCard(p)).join('')}
+    </div>
+  `;
+}
+
+function renderTreeRanking() {
+  const finished = state.treeFinishOrder;
+  const unfinishedActive = activePlayerIndices()
+    .filter(p => !finished.includes(p))
+    .sort((a, b) => totalHits(state.trees[b]) - totalHits(state.trees[a]));
+  const order = [...finished, ...unfinishedActive];
+  const entries = order.map((p, i) => ({
+    label: state.playerNames[p] + (finished.includes(p) ? '' : ' (im Spiel)'),
+    value: `${totalHits(state.trees[p])}/${TREE_TOTAL}`,
+    rank: i + 1,
+  }));
+  return renderRankingBanner(entries);
+}
+
+function renderTreeCard(p) {
+  const tree = state.trees[p];
+  const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
+  const isActive = state.active === p && !isPaused(p);
+  const complete = isTreeComplete(tree);
+  const hits = totalHits(tree);
+  const paused = isPaused(p);
+
+  return `
+    <div id="tree-card-${p}" class="bg-white rounded-2xl border-2 ${isActive ? `border-${c.name}` : 'border-parchment2'} p-4 ${isActive || paused ? '' : 'tree-dim'} ${paused ? 'opacity-50' : ''}">
+      <div class="flex items-center justify-between mb-3">
+        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? ' · pausiert' : ''}</p>
+        <p class="text-xs font-medium text-ink/50">${hits} / ${TREE_TOTAL}</p>
+      </div>
+      <div class="flex flex-col items-center gap-[6px]">
+        ${ROWS.map((row, r) => `
+          <div class="flex gap-[6px]">
+            ${Array.from({ length: row.count }).map((_, col) => {
+              const hit = tree[r][col];
+              return `
+                <button
+                  data-action="hit-cell" data-player="${p}" data-row="${r}" data-col="${col}"
+                  ${isActive && !complete ? '' : 'disabled'}
+                  class="ring-cell border-2 ${hit ? 'hit' : `border-${c.name} bg-${c.light} text-${c.name}`}">
+                  <span class="num">${row.value}</span>
+                  ${hit ? `<span class="arrow-mark"><svg width="24" height="24" viewBox="0 0 26 26"><line x1="5" y1="5" x2="21" y2="21" stroke="#5F5A4E" stroke-width="2.5" stroke-linecap="round"/><line x1="21" y1="5" x2="5" y2="21" stroke="#5F5A4E" stroke-width="2.5" stroke-linecap="round"/></svg></span>` : ''}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- Points game ---------- */
+function renderPointsGame() {
+  const n = state.numPlayers;
+  const filled = allPointsFilled();
+  const canUndo = state.pointsHistory.length > 0;
+  let ranking = '';
+
+  if (filled) {
+    maybeStartTiebreak('points');
+    if (state.tiebreak && state.tiebreak.game === 'points' && !state.tiebreak.finished) {
+      ranking = renderTiebreakPanel();
+    } else {
+      if (!state.pointsStatsRecorded) {
+        const active = activePlayerIndices();
+        const totals = computeTotalsMap('points');
+        const maxTotal = Math.max(...active.map(p => totals[p]));
+        const winners = active.filter(p => totals[p] === maxTotal);
+        recordGameResult('points', winners.length > 1 ? 'Unentschieden' : state.playerNames[winners[0]]);
+        state.pointsStatsRecorded = true;
+      }
+      const { order, totals, tiebreakTierBoundaries } = buildFinalRanking('points');
+      const ranks = assignRanksForFinal(order, totals, tiebreakTierBoundaries);
+      const entries = order.map(p => ({ label: state.playerNames[p], value: `${totals[p]} Punkte`, rank: ranks[p] }));
+      ranking = renderRankingBanner(entries);
+    }
+  }
+
+  return `
+    ${ranking}
+    <div class="sticky top-0 z-10 bg-parchment/95 backdrop-blur pt-4 pb-3 -mx-4 px-4 border-b border-parchment2">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <button data-action="go-home" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">🏠</button>
+          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="Zurück zum Spielmenü">🔁</button>` : ''}
+          <p class="font-display text-2xl text-pinedark">Punktejagd</p>
+        </div>
+        <div class="flex gap-2">
+          <button data-action="undo-points" ${!canUndo ? 'disabled' : ''}
+            class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium flex items-center gap-1 ${!canUndo ? 'opacity-35' : 'active:scale-95'}">
+            ↺ Undo
+          </button>
+          <button data-action="reset-points"
+            class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium active:scale-95">
+            ⟲ Reset
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        ${Array.from({ length: state.numRoundsPoints }).map((_, r) => `
+          <button data-action="select-round" data-round="${r}"
+            class="flex-1 min-w-[70px] h-11 rounded-xl font-display text-sm border-2 transition-colors
+              ${state.pointsRound === r ? 'bg-gold border-gold text-white' : 'bg-white border-parchment2 text-ink/60'}">
+            Runde ${r + 1}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+      ${[...Array(n).keys()].map(p => renderPointsCard(p)).join('')}
+    </div>
+    ${renderNumpadOverlay()}
+  `;
+}
+
+function renderPointsCard(p) {
+  const round = state.pointsRound;
+  const values = state.pointsScores[p][round];
+  const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
+  const paused = isPaused(p);
+
+  return `
+    <div class="bg-white rounded-2xl border-2 border-${c.name} p-4 ${paused ? 'opacity-50' : ''}">
+      <div class="flex items-center justify-between mb-3">
+        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? ' · pausiert' : ''}</p>
+        <div class="flex items-center gap-2">
+          <p class="text-xs font-medium text-ink/50">Runde ${round + 1}: ${roundTotal(p, round)} Pkt</p>
+          ${pauseButtonHtml(p)}
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        ${values.map((v, idx) => `
+          <button data-action="open-picker" data-player="${p}" data-round="${round}" data-idx="${idx}" ${paused ? 'disabled' : ''}
+            class="arrow-slot border-2 ${v === null ? `border-${c.name} bg-${c.light} text-${c.name}` : `bg-${c.name} border-${c.name} text-white`}">
+            ${v === null ? '–' : v}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderNumpadOverlay() {
+  if (!state.picker || state.isSpectator) return '';
+  const { player: p, round, idx } = state.picker;
+  const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
+
+  return `
+    <div data-action="close-picker" class="fixed inset-0 z-50 flex items-end justify-center" style="background:rgba(15,42,31,0.55);">
+      <div class="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 pop-in">
+        <div class="w-10 h-1.5 bg-parchment2 rounded-full mx-auto mb-4"></div>
+        <p class="text-center text-sm text-ink/60 mb-1">${escapeHtml(state.playerNames[p])} · Runde ${round + 1}</p>
+        <p class="text-center font-display text-lg text-${c.name} mb-4">Pfeil ${idx + 1} – Punktzahl wählen</p>
+        <div class="grid grid-cols-3 gap-3">
+          ${PHONE_KEYPAD_ORDER.map(val => `
+            <button data-action="pick-score" data-player="${p}" data-round="${round}" data-idx="${idx}" data-value="${val}"
+              class="h-16 rounded-2xl border-2 border-${c.name} bg-${c.light} text-${c.name} font-display text-2xl active:scale-90 transition-transform">
+              ${val}
+            </button>
+          `).join('')}
+          <button data-action="close-picker"
+            class="h-16 rounded-2xl border-2 border-ink/15 text-ink/50 font-display text-sm active:scale-90 transition-transform">
+            Schließen
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- Stechen-Panel (Punktejagd & Zahlenlotto) ---------- */
+function renderTiebreakPanel() {
+  const tb = state.tiebreak;
+  const contenders = tb.contenders;
+  const nextPlayer = contenders.find(p => tb.answers[p] === undefined);
+
+  let body = '';
+  if (tb.game === 'points') {
+    body = `
+      <p class="text-sm text-parchment/80 text-center mb-3">Versuch ${tb.attempt + 1} von ${tb.maxAttempts} – höchste Zahl gewinnt</p>
+      ${nextPlayer !== undefined ? `
+        <p class="text-center font-display text-lg mb-3">${escapeHtml(state.playerNames[nextPlayer])} schießt</p>
+        ${state.isSpectator ? `
+          <p class="text-xs text-parchment/60 text-center italic">👁 Zuschauer-Ansicht – Eingabe nur auf dem Host-Gerät</p>
+        ` : `
+          <div class="grid grid-cols-3 gap-2">
+            ${PHONE_KEYPAD_ORDER.map(val => `
+              <button data-action="tiebreak-answer-points" data-player="${nextPlayer}" data-value="${val}"
+                class="h-14 rounded-2xl border-2 border-parchment bg-white/10 text-parchment font-display text-xl active:scale-90 transition-transform">
+                ${val}
+              </button>
+            `).join('')}
+          </div>
+        `}
+      ` : ''}
+      <div class="flex flex-wrap gap-2 justify-center mt-4">
+        ${contenders.map(p => `<span class="text-xs px-2 py-1 rounded-full ${tb.answers[p] !== undefined ? 'bg-parchment text-pine' : 'border border-parchment/40 text-parchment/70'}">${escapeHtml(state.playerNames[p])}${tb.answers[p] !== undefined ? ': ' + tb.answers[p] : ''}</span>`).join('')}
+      </div>
+    `;
+  } else {
+    const call = tb.currentCall;
+    const isClub = tb.lottoVariant === 'club';
+    let callDisplay;
+    if (isClub) {
+      const def = LOTTO_COLORS.find(c => c.key === call);
+      callDisplay = `<div class="call-ball border-2 mx-auto" style="background:${def.bg};color:${def.text};border-color:${def.border};">${def.letter}</div><p class="text-xs text-parchment/70 mt-1">${def.label}</p>`;
+    } else {
+      callDisplay = `<div class="call-ball border-2 border-parchment bg-white/10 text-parchment mx-auto">${call}</div>`;
+    }
+    body = `
+      <p class="text-sm text-parchment/80 text-center mb-3">Versuch ${tb.attempt + 1} von ${tb.maxAttempts} – richtige${isClub ? ' Farbe' : ' Zahl'} gewinnt</p>
+      <div class="text-center mb-4">${callDisplay}</div>
+      <div class="flex flex-col gap-2">
+        ${contenders.map(p => `
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-sm">${escapeHtml(state.playerNames[p])}</span>
+            ${tb.answers[p] !== undefined ? `
+              <span class="text-xs px-2 py-1 rounded-full bg-parchment text-pine">${tb.answers[p] ? '✅ Getroffen' : '❌ Verfehlt'}</span>
+            ` : state.isSpectator ? `
+              <span class="text-xs text-parchment/50 italic">wartet...</span>
+            ` : `
+              <span class="flex gap-2">
+                <button data-action="tiebreak-answer-lotto" data-player="${p}" data-hit="1" class="text-xs px-3 py-1.5 rounded-lg border border-parchment text-parchment">✅ Treffer</button>
+                <button data-action="tiebreak-answer-lotto" data-player="${p}" data-hit="0" class="text-xs px-3 py-1.5 rounded-lg border border-parchment/50 text-parchment/70">❌ Verfehlt</button>
+              </span>
+            `}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="mt-4 rounded-2xl bg-pine text-parchment px-5 py-4 pop-in">
+      <p class="font-display text-xl text-center mb-1">⚡ Stechen</p>
+      <p class="text-xs text-center text-parchment/70 mb-3">Gleichstand um Platz 1: ${tb.contenders.map(p => escapeHtml(state.playerNames[p])).join(', ')}</p>
+      ${body}
+    </div>
+  `;
+}
+
+/* ---------- Zahlenlotto game ---------- */
+function renderLottoGame() {
+  const n = state.numPlayers;
+  const filled = allLottoFilled();
+  const canUndo = state.lottoHistory.length > 0;
+  const round = state.lottoRound;
+  const calls = state.lottoCalls[round];
+  let ranking = '';
+
+  if (filled) {
+    maybeStartTiebreak('lotto');
+    if (state.tiebreak && state.tiebreak.game === 'lotto' && !state.tiebreak.finished) {
+      ranking = renderTiebreakPanel();
+    } else {
+      if (!state.lottoStatsRecorded) {
+        const active = activePlayerIndices();
+        const totals = computeTotalsMap('lotto');
+        const maxTotal = Math.max(...active.map(p => totals[p]));
+        const winners = active.filter(p => totals[p] === maxTotal);
+        recordGameResult('lotto', winners.length > 1 ? 'Unentschieden' : state.playerNames[winners[0]]);
+        state.lottoStatsRecorded = true;
+      }
+      const { order, totals, tiebreakTierBoundaries } = buildFinalRanking('lotto');
+      const ranks = assignRanksForFinal(order, totals, tiebreakTierBoundaries);
+      const entries = order.map(p => ({ label: state.playerNames[p], value: `${totals[p]} Punkte`, rank: ranks[p] }));
+      ranking = renderRankingBanner(entries);
+    }
+  }
+
+  return `
+    ${ranking}
+    <div class="sticky top-0 z-10 bg-parchment/95 backdrop-blur pt-4 pb-3 -mx-4 px-4 border-b border-parchment2">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <button data-action="go-home" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">🏠</button>
+          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="Zurück zum Spielmenü">🔁</button>` : ''}
+          <p class="font-display text-2xl text-pinedark">Zahlenlotto</p>
+        </div>
+        <div class="flex gap-2">
+          <button data-action="undo-lotto" ${!canUndo ? 'disabled' : ''}
+            class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium flex items-center gap-1 ${!canUndo ? 'opacity-35' : 'active:scale-95'}">
+            ↺ Undo
+          </button>
+          <button data-action="reset-lotto"
+            class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium active:scale-95">
+            ⟲ Reset
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 mb-3">
+        ${Array.from({ length: state.numRoundsLotto }).map((_, r) => `
+          <button data-action="select-lotto-round" data-round="${r}"
+            class="flex-1 min-w-[70px] h-11 rounded-xl font-display text-sm border-2 transition-colors
+              ${state.lottoRound === r ? 'bg-gold border-gold text-white' : 'bg-white border-parchment2 text-ink/60'}">
+            Runde ${r + 1}
+          </button>
+        `).join('')}
+      </div>
+      ${renderLiveStandings('lotto')}
+    </div>
+
+    <div class="mt-5">
+      ${calls === null ? renderLottoDrawCard(round) : renderLottoRoundContent(round, calls)}
+    </div>
+  `;
+}
+
+function renderLiveStandings(game) {
+  const totals = computeTotalsMap(game);
+  const active = activePlayerIndices();
+  if (active.length === 0) return '';
+  const maxTotal = Math.max(...active.map(p => totals[p]));
+  const sorted = [...active].sort((a, b) => totals[b] - totals[a]);
+  return `
+    <div class="flex flex-wrap gap-2 bg-white rounded-xl border border-parchment2 px-3 py-2 mt-3">
+      ${sorted.map(p => {
+        const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
+        const isLeader = totals[p] === maxTotal && maxTotal > 0;
+        return `
+          <span class="text-sm font-medium ${isLeader ? `text-${c.name}` : 'text-ink/60'}">
+            ${escapeHtml(state.playerNames[p])}: <span class="font-display text-base">${totals[p]}</span>${isLeader ? ' 👑' : ''}
+          </span>
+        `;
+      }).join('<span class="text-ink/20">|</span>')}
+    </div>
+  `;
+}
+
+function renderLottoDrawCard(round) {
+  const isClub = state.lottoVariant === 'club';
+  return `
+    <div class="bg-white rounded-2xl border-2 border-gold p-6 text-center">
+      <p class="font-display text-xl text-pinedark mb-2">Runde ${round + 1} von ${state.numRoundsLotto}</p>
+      <p class="text-sm text-ink/60 mb-5">Noch ${isClub ? 'keine Farben' : 'keine Zahlen'} ausgelost. Bereit für die ${state.lottoArrowsPerRound} Zielwerte?</p>
+      <button data-action="draw-lotto" data-round="${round}"
+        class="h-12 px-6 rounded-xl bg-gold text-white font-display text-lg tracking-wide active:scale-95 transition-transform">
+        🎲 ${isClub ? 'Farben' : 'Zahlen'} auslosen
+      </button>
+    </div>
+  `;
+}
+
+function renderLottoRoundContent(round, calls) {
+  const isClub = state.lottoVariant === 'club';
+  const flagMatch = isClub ? matchFlagEasterEgg(calls) : null;
+
+  return `
+    <div class="bg-white rounded-2xl border-2 border-gold p-4 mb-4 text-center dice-in">
+      <p class="text-xs uppercase tracking-widest text-ink/50 mb-2">Aufgerufene ${isClub ? 'Farben' : 'Zahlen'} – Runde ${round + 1}</p>
+      <div class="flex flex-wrap justify-center gap-3">
+        ${isClub ? calls.map(key => {
+          const def = LOTTO_COLORS.find(c => c.key === key);
+          return `
+            <div class="flex flex-col items-center gap-1">
+              <div class="call-ball border-2" style="background:${def.bg};color:${def.text};border-color:${def.border};">${def.letter}</div>
+              <span class="text-[10px] text-ink/50">${def.label}</span>
+            </div>
+          `;
+        }).join('') : calls.map(v => `<div class="call-ball border-2 border-gold bg-parchment2 text-pinedark">${v}</div>`).join('')}
+      </div>
+      ${flagMatch ? `<p class="text-xs text-gold mt-3">💡 Sieht aus wie die Flagge von ${flagMatch.flag} ${flagMatch.name}!</p>` : ''}
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      ${[...Array(state.numPlayers).keys()].map(p => renderLottoPlayerCard(p, round)).join('')}
+    </div>
+  `;
+}
+
+function renderLottoPlayerCard(p, round) {
+  const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
+  const hits = state.lottoScores[p][round];
+  const isClub = state.lottoVariant === 'club';
+  const paused = isPaused(p);
+  const count = state.lottoArrowsPerRound;
+
+  return `
+    <div class="bg-white rounded-2xl border-2 border-${c.name} p-4 ${paused ? 'opacity-50' : ''}">
+      <div class="flex items-center justify-between mb-3">
+        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? ' · pausiert' : ''}</p>
+        <div class="flex items-center gap-2">
+          <p class="text-xs font-medium text-ink/50">${hits === null ? '– Pkt' : hitPoints(hits) + ' Pkt'}</p>
+          ${pauseButtonHtml(p)}
+        </div>
+      </div>
+      <p class="text-xs text-ink/50 mb-2">Wie viele der ${count} ${isClub ? 'Farben' : 'Zahlen'} getroffen?</p>
+      <div class="flex flex-wrap gap-2">
+        ${Array.from({ length: count + 1 }, (_, h) => h).map(h => `
+          <button data-action="pick-lotto-hits" data-player="${p}" data-round="${round}" data-hits="${h}" ${paused ? 'disabled' : ''}
+            class="hit-btn rounded-xl border-2 py-2 px-2 flex flex-col items-center transition-transform min-w-[52px]
+              ${hits === h ? `bg-${c.name} border-${c.name} text-white` : `bg-${c.light} border-${c.name} text-${c.name}`}">
+            <span class="font-display text-lg">${h}</span>
+            <span class="text-[10px] opacity-80">${hitPoints(h)} Pkt</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- Nullschuss game ---------- */
+function renderNullGame() {
+  const n = state.numPlayers;
+  const canUndo = state.nullHistory.length > 0;
+  const allDone = activePlayerIndices().every(p => state.nullFinishOrder.includes(p)) && activePlayerIndices().length > 0;
+
+  return `
+    ${state.nullFinishOrder.length ? renderNullRanking() : ''}
+    ${state.nullBustMessage ? renderNullBustBanner() : ''}
+    <div class="sticky top-0 z-10 bg-parchment/95 backdrop-blur pt-4 pb-3 -mx-4 px-4 border-b border-parchment2">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <button data-action="go-home" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">🏠</button>
+          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="Zurück zum Spielmenü">🔁</button>` : ''}
+          <p class="font-display text-2xl text-pinedark">Nullschuss</p>
+        </div>
+        <div class="flex gap-2">
+          <button data-action="undo-null" ${!canUndo ? 'disabled' : ''}
+            class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium flex items-center gap-1 ${!canUndo ? 'opacity-35' : 'active:scale-95'}">
+            ↺ Undo
+          </button>
+          <button data-action="reset-null"
+            class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium active:scale-95">
+            ⟲ Reset
+          </button>
+        </div>
+      </div>
+      <p class="text-xs font-medium text-ink/50 uppercase tracking-widest">Start: ${state.nullStartScore} Punkte</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 mb-5">
+      ${[...Array(n).keys()].map(p => renderNullBoardCard(p)).join('')}
+    </div>
+
+    ${!allDone && !isPaused(state.nullActive) ? renderNullTurnCard() : ''}
+  `;
+}
+
+function renderNullRanking() {
+  const finished = state.nullFinishOrder;
+  const unfinishedActive = activePlayerIndices()
+    .filter(p => !finished.includes(p))
+    .sort((a, b) => state.nullScores[a] - state.nullScores[b]);
+  const order = [...finished, ...unfinishedActive];
+  const entries = order.map((p, i) => ({
+    label: state.playerNames[p] + (finished.includes(p) ? ` (${state.nullArrowsUsed[p]} Pfeile)` : ' (im Spiel)'),
+    value: finished.includes(p) ? '0' : state.nullScores[p],
+    rank: i + 1,
+  }));
+  return renderRankingBanner(entries);
+}
+
+function renderNullBoardCard(p) {
+  const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
+  const finishedIdx = state.nullFinishOrder.indexOf(p);
+  const isFinished = finishedIdx !== -1;
+  const paused = isPaused(p);
+  const isActive = state.nullActive === p && !isFinished && !paused;
+  const medals = ['🏆', '🥈', '🥉'];
+  const medal = isFinished ? (medals[finishedIdx] || `${finishedIdx + 1}.`) : '';
+  return `
+    <div class="bg-white rounded-2xl border-2 ${isActive || isFinished ? `border-${c.name}` : 'border-parchment2'} p-4 ${isActive || isFinished || paused ? '' : 'tree-dim'} ${paused ? 'opacity-50' : ''}">
+      <div class="flex items-center justify-between">
+        <p class="font-display text-lg text-${c.name}">${isActive ? '🎯 ' : ''}${medal ? medal + ' ' : ''}${escapeHtml(state.playerNames[p])}${paused ? ' · pausiert' : ''}</p>
+        <div class="flex items-center gap-2">
+          <p class="font-display text-3xl text-${c.name}">${state.nullScores[p]}</p>
+          ${pauseButtonHtml(p)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderNullTurnCard() {
+  const p = state.nullActive;
+  const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
+  const arrows = state.nullTurnArrows;
+  const running = state.nullScores[p] - arrows.reduce((s, v) => s + v, 0);
+
+  return `
+    <div class="bg-white rounded-2xl border-2 border-${c.name} p-4">
+      <p class="font-display text-lg text-${c.name} mb-1">${escapeHtml(state.playerNames[p])} ist am Zug</p>
+      <p class="text-xs text-ink/50 mb-3">Rest nach diesem Zug: <span class="font-display text-base text-${c.name}">${running}</span></p>
+      <div class="flex flex-wrap gap-2 mb-4">
+        ${Array.from({ length: state.nullArrowsPerTurn }).map((_, i) => `
+          <div class="arrow-slot border-2 ${arrows[i] !== undefined ? `bg-${c.name} border-${c.name} text-white` : `border-${c.name} bg-${c.light} text-${c.name}`}">
+            ${arrows[i] !== undefined ? arrows[i] : '–'}
+          </div>
+        `).join('')}
+      </div>
+      ${state.isSpectator ? `
+        <p class="text-xs text-ink/40 text-center italic">👁 Zuschauer-Ansicht – Eingabe nur auf dem Host-Gerät</p>
+      ` : `
+        <p class="text-xs text-ink/50 mb-2">Pfeilwert eingeben:</p>
+        <div class="grid grid-cols-3 gap-2">
+          ${PHONE_KEYPAD_ORDER.map(val => `
+            <button data-action="pick-null-arrow" data-value="${val}"
+              class="h-14 rounded-2xl border-2 border-${c.name} bg-${c.light} text-${c.name} font-display text-xl active:scale-90 transition-transform">
+              ${val}
+            </button>
+          `).join('')}
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function renderNullBustBanner() {
+  const p = state.nullBustMessage.player;
+  return `
+    <div class="mt-4 rounded-2xl px-5 py-3 text-center pop-in" style="background:#A93F3F;color:#fff;">
+      <p class="font-display text-lg">💥 Überschossen! Zug von ${escapeHtml(state.playerNames[p])} verfällt.</p>
+    </div>
+  `;
+}
+
+/* ---------- Statistik ---------- */
+function renderStats() {
+  const stats = pruneStats(loadStats());
+  const byDate = {};
+  stats.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
+  const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+
+  const summary = {};
+  Object.keys(GAME_LABELS).forEach(g => { summary[g] = { count: 0, wins: {} }; });
+  stats.forEach(s => {
+    summary[s.game].count++;
+    if (s.winner && s.winner !== 'Unentschieden') {
+      s.winner.split(' & ').forEach(name => {
+        summary[s.game].wins[name] = (summary[s.game].wins[name] || 0) + 1;
+      });
+    }
+  });
+
+  return `
+    <div class="pt-10 pb-6">
+      <button data-action="back-to-mode-from-stats" class="text-sm text-ink/50 mb-4">← Zurück</button>
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1 text-center">Letzte 7 Tage</p>
+      <h1 class="font-display text-4xl text-pinedark text-center">📊 Statistik</h1>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 mb-6">
+      ${Object.keys(GAME_LABELS).map(g => {
+        const s = summary[g];
+        const topName = Object.keys(s.wins).sort((a, b) => s.wins[b] - s.wins[a])[0];
+        return `
+          <div class="bg-white rounded-2xl border border-parchment2 p-4">
+            <p class="font-display text-base text-pinedark mb-1">${GAME_LABELS[g].icon} ${GAME_LABELS[g].name}</p>
+            <p class="text-xs text-ink/50">${s.count} Spiel${s.count === 1 ? '' : 'e'}</p>
+            ${topName ? `<p class="text-xs text-gold mt-1">👑 ${escapeHtml(topName)} (${s.wins[topName]}×)</p>` : ''}
+          </div>
+        `;
+      }).join('')}
+    </div>
+
+    ${dates.length === 0 ? `
+      <p class="text-center text-sm text-ink/50 mt-10">Noch keine gespeicherten Spiele in den letzten 7 Tagen.</p>
+    ` : dates.map(date => `
+      <div class="mb-5">
+        <p class="font-display text-sm text-ink/50 uppercase tracking-widest mb-2">${formatStatsDate(date)}</p>
+        <div class="flex flex-col gap-2">
+          ${byDate[date].map(entry => `
+            <div class="bg-white rounded-xl border border-parchment2 px-4 py-3 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-medium">${GAME_LABELS[entry.game].icon} ${GAME_LABELS[entry.game].name}</p>
+                <p class="text-xs text-ink/50 truncate">${entry.players.map(escapeHtml).join(', ')} · ${entry.time}</p>
+              </div>
+              <p class="text-sm font-display text-gold text-right whitespace-nowrap">${entry.winner === 'Unentschieden' ? '🤝' : '🏆'} ${escapeHtml(entry.winner)}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('')}
+
+    ${stats.length > 0 ? `
+      <button data-action="clear-stats" class="w-full h-11 mt-4 rounded-xl border-2 border-ink/15 text-sm font-medium text-ink/60 active:scale-95">
+        🗑 Statistik löschen
+      </button>
+    ` : ''}
+  `;
+}
+
+/* ---------- helpers ---------- */
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function attemptJoin(code) {
+  const myToken = ++sessionOpToken;
+
+  if (typeof window.fbJoinSession !== 'function' || !window.fbConfigured) {
+    state.deviceMode = 'multi';
+    state.screen = 'join-code';
+    state.prefillJoinCode = code;
+    render();
+    const errorEl = document.getElementById('join-error');
+    if (errorEl) {
+      errorEl.textContent = 'Verbindung nicht verfügbar (Firebase noch nicht eingerichtet).';
+      errorEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  state.sessionCode = code;
+  state.isHost = false;
+  state.isSpectator = true;
+  state.joinTimedOut = false;
+  state._receivedAnyData = false;
+  state.deviceMode = 'multi';
+  state.screen = 'spectator-waiting';
+  saveLocalSession(code, 'spectator');
+  render();
+
+  setTimeout(() => {
+    if (myToken !== sessionOpToken) return; // überholt durch neuere Auswahl
+    if (state.screen === 'spectator-waiting' && !state._receivedAnyData) {
+      state.joinTimedOut = true;
+      render();
+    }
+  }, 6000);
+
+  window.fbJoinSession(code, (data) => {
+    if (myToken !== sessionOpToken) return; // überholt durch neuere Auswahl
+    if (!data) return;
+    state._receivedAnyData = true;
+    Object.assign(state, data);
+    state.isHost = false;
+    state.isSpectator = true;
+    state.sessionCode = code;
+    state.deviceMode = 'multi';
+    state.joinTimedOut = false;
+    saveLocalSession(code, 'spectator');
+    const liveScreens = ['game-tree', 'game-points', 'game-lotto', 'game-null'];
+    if (!liveScreens.includes(state.screen)) {
+      state.screen = 'spectator-waiting';
+    }
+    render();
+  });
+}
+
+function resetToStart() {
+  if (typeof window.fbLeaveSession === 'function') {
+    try { window.fbLeaveSession(); } catch (e) {}
+  }
+  state.screen = 'device-mode';
+  state.deviceMode = null;
+  state.isHost = false;
+  state.isSpectator = false;
+  state.sessionCode = null;
+  state.joinTimedOut = false;
+  state._receivedAnyData = false;
+  state.editingUserId = null;
+  state.userPickerForIndex = null;
+  state.numPlayers = 2;
+  state.mode = null;
+  state.playerNames = defaultNames(2);
+  state.numArrows = 3;
+  state.numRoundsPoints = 3;
+  state.numRoundsLotto = 3;
+  state.lottoArrowsPerRound = 3;
+  state.pausedPlayers = [];
+  state.trees = [];
+  state.active = 0;
+  state.history = [];
+  state.treeFinishOrder = [];
+  state.pointsScores = [];
+  state.pointsRound = 0;
+  state.picker = null;
+  state.pointsHistory = [];
+  state.lottoVariant = 'club';
+  state.lottoCalls = [];
+  state.lottoScores = [];
+  state.lottoRound = 0;
+  state.lottoHistory = [];
+  state.nullStartScore = 401;
+  state.nullArrowsPerTurn = 3;
+  state.nullScores = [];
+  state.nullArrowsUsed = [];
+  state.nullActive = 0;
+  state.nullTurnArrows = [];
+  state.nullFinishOrder = [];
+  state.nullHistory = [];
+  state.nullBustMessage = null;
+  state.tiebreak = null;
+  state.treeStatsRecorded = false;
+  state.pointsStatsRecorded = false;
+  state.lottoStatsRecorded = false;
+  state.nullStatsRecorded = false;
+}
+
+/* ---------- events ---------- */
+document.getElementById('app').addEventListener('click', (e) => {
+  const target = e.target.closest('[data-action]');
+  if (!target) return;
+  const action = target.dataset.action;
+
+  // Zuschauer dürfen nur den Spielstand ansehen, nicht verändern.
+  // Alles, was nicht das eigentliche Spiel manipuliert (Navigation, Sessions-Verwaltung, Statistik ansehen etc.),
+  // bleibt für Zuschauer immer erlaubt.
+  const SPECTATOR_BLOCKED_ACTIONS = [
+    'hit-cell', 'undo', 'reset', 'select-player',
+    'open-picker', 'close-picker', 'pick-score', 'undo-points', 'reset-points', 'select-round',
+    'draw-lotto', 'pick-lotto-hits', 'undo-lotto', 'reset-lotto', 'select-lotto-round',
+    'pick-null-arrow', 'undo-null', 'reset-null',
+    'tiebreak-answer-points', 'tiebreak-answer-lotto',
+    'toggle-pause', 'switch-game',
+    'select-lotto-variant', 'select-null-start', 'start-game', 'pick-mode',
+  ];
+  if (state.isSpectator && SPECTATOR_BLOCKED_ACTIONS.includes(action)) return;
+
+  if (action === 'choose-single') {
+    if (typeof window.fbLeaveSession === 'function') {
+      try { window.fbLeaveSession(); } catch (e) {}
+    }
+    state.isHost = false;
+    state.isSpectator = false;
+    state.sessionCode = null;
+    state.deviceMode = 'single';
+    state.screen = 'player-count';
+    render();
+  }
+  if (action === 'choose-multi') {
+    if (typeof window.fbLeaveSession === 'function') {
+      try { window.fbLeaveSession(); } catch (e) {}
+    }
+    state.isHost = false;
+    state.isSpectator = false;
+    state.sessionCode = null;
+    state.deviceMode = 'multi';
+    state.screen = 'multi-choice';
+    render();
+  }
+  if (action === 'locked-multi') {
+    // Ruft die native App auf, um die Paywall (Multi-Device-Upgrade) anzuzeigen.
+    // Im normalen Web-Browser (z.B. GitHub Pages) passiert hier einfach nichts.
+    window.location.href = 'archeryarena://upgrade';
+  }
+  if (action === 'back-to-device-mode') {
+    if (typeof window.fbLeaveSession === 'function') {
+      try { window.fbLeaveSession(); } catch (e) {}
+    }
+    state.isHost = false;
+    state.isSpectator = false;
+    state.sessionCode = null;
+    state.deviceMode = null;
+    state.editingUserId = null;
+    state.screen = 'device-mode';
+    render();
+  }
+
+  /* --- Nutzerverwaltung --- */
+  if (action === 'go-user-management') {
+    state.screen = 'user-management';
+    render();
+  }
+  if (action === 'new-user') {
+    state.editingUserId = null;
+    state.screen = 'user-edit';
+    render();
+  }
+  if (action === 'edit-user') {
+    state.editingUserId = target.dataset.userId;
+    state.screen = 'user-edit';
+    render();
+  }
+  if (action === 'cancel-user-edit') {
+    state.editingUserId = null;
+    state.screen = 'user-management';
+    render();
+  }
+  if (action === 'save-user') {
+    const firstName = document.getElementById('user-firstname-input').value.trim();
+    const lastName = document.getElementById('user-lastname-input').value.trim();
+    const nickname = document.getElementById('user-nickname-input').value.trim();
+    if (!firstName && !lastName && !nickname) return;
+    const profiles = loadUserProfiles();
+    if (state.editingUserId) {
+      const idx = profiles.findIndex(p => p.id === state.editingUserId);
+      if (idx !== -1) profiles[idx] = { ...profiles[idx], firstName, lastName, nickname };
+    } else {
+      profiles.push({ id: 'u' + Date.now() + Math.floor(Math.random() * 1000), firstName, lastName, nickname });
+    }
+    saveUserProfiles(profiles);
+    state.editingUserId = null;
+    state.screen = 'user-management';
+    render();
+  }
+  if (action === 'delete-user') {
+    const userId = target.dataset.userId;
+    if (confirm('Diesen Nutzer wirklich löschen?')) {
+      const profiles = loadUserProfiles().filter(p => p.id !== userId);
+      saveUserProfiles(profiles);
+      state.editingUserId = null;
+      state.screen = 'user-management';
+      render();
+    }
+  }
+  if (action === 'open-user-picker') {
+    syncPlayerNamesFromInputs();
+    state.userPickerForIndex = parseInt(target.dataset.idx, 10);
+    render();
+  }
+  if (action === 'close-user-picker') {
+    state.userPickerForIndex = null;
+    render();
+  }
+  if (action === 'pick-user-for-slot') {
+    syncPlayerNamesFromInputs();
+    const idx = parseInt(target.dataset.idx, 10);
+    const userId = target.dataset.userId;
+    const profile = loadUserProfiles().find(p => p.id === userId);
+    if (profile) {
+      state.playerNames[idx] = profile.nickname || (profile.firstName + ' ' + profile.lastName) || `Spieler ${idx + 1}`;
+    }
+    state.userPickerForIndex = null;
+    render();
+  }
+
+  if (action === 'back-to-multi-choice') {
+    if (typeof window.fbLeaveSession === 'function') {
+      try { window.fbLeaveSession(); } catch (e) {}
+    }
+    state.isHost = false;
+    state.isSpectator = false;
+    state.sessionCode = null;
+    state.joinTimedOut = false;
+    state.screen = 'multi-choice';
+    render();
+  }
+  if (action === 'resume-session') {
+    if (resumingCode) return;
+    const code = target.dataset.code;
+    const role = target.dataset.role;
+    if (role === 'host') {
+      resumeAsHost(code);
+    } else {
+      attemptJoin(code);
+    }
+  }
+  if (action === 'go-sessions-list') {
+    state.screen = 'sessions-list';
+    render();
+  }
+  if (action === 'remove-session') {
+    if (resumingCode) return;
+    removeLocalSession(target.dataset.code);
+    render();
+  }
+  if (action === 'host-session') {
+    state.isHost = true;
+    state.isSpectator = false;
+    state.sessionCode = String(1000 + Math.floor(Math.random() * 9000));
+    state.screen = 'host-code';
+    saveLocalSession(state.sessionCode, 'host');
+    render();
+  }
+  if (action === 'continue-after-host') {
+    state.screen = 'player-count';
+    render();
+  }
+  if (action === 'show-join-screen') {
+    state.screen = 'join-code';
+    render();
+  }
+  if (action === 'submit-join-code') {
+    const input = document.getElementById('join-code-input');
+    const code = (input.value || '').trim();
+    const errorEl = document.getElementById('join-error');
+    if (!/^\d{4}$/.test(code)) {
+      errorEl.textContent = 'Bitte einen 4-stelligen Code eingeben.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+    attemptJoin(code);
+  }
+  if (action === 'leave-session') {
+    if (typeof window.fbLeaveSession === 'function') {
+      try { window.fbLeaveSession(); } catch (e) {}
+    }
+    resetToStart();
+    render();
+  }
+
+  if (action === 'pick-count') {
+    const n = parseInt(target.dataset.count, 10);
+    state.numPlayers = n;
+    state.playerNames = defaultNames(n);
+    state.screen = 'mode';
+    render();
+  }
+  if (action === 'back-to-count') {
+    state.screen = 'player-count';
+    render();
+  }
+  if (action === 'pick-mode') {
+    state.mode = target.dataset.mode;
+    state.screen = 'setup';
+    render();
+  }
+  if (action === 'back-to-mode') {
+    state.screen = 'mode';
+    state.mode = null;
+    render();
+  }
+  if (action === 'select-null-start') {
+    syncPlayerNamesFromInputs();
+    state.nullStartScore = parseInt(target.dataset.value, 10);
+    render();
+  }
+  if (action === 'select-lotto-variant') {
+    syncPlayerNamesFromInputs();
+    state.lottoVariant = target.dataset.value;
+    render();
+  }
+
+  if (action === 'start-game') {
+    const inputs = document.querySelectorAll('[data-player-input]');
+    inputs.forEach(inp => {
+      const idx = parseInt(inp.dataset.playerInput, 10);
+      const val = inp.value.trim();
+      state.playerNames[idx] = val || `Spieler ${idx + 1}`;
+    });
+    state.pausedPlayers = [];
+    state.tiebreak = null;
+
+    if (state.mode === 'tree') {
+      state.trees = Array.from({ length: state.numPlayers }, () => makeTree());
+      state.active = 0;
+      state.history = [];
+      state.treeFinishOrder = [];
+      state.treeStatsRecorded = false;
+      state.screen = 'game-tree';
+    } else if (state.mode === 'points') {
+      const roundsInput = document.getElementById('num-points-rounds-input');
+      let numPR = parseInt(roundsInput.value, 10);
+      if (!numPR || numPR < MIN_POINTS_ROUNDS) numPR = MIN_POINTS_ROUNDS;
+      if (numPR > MAX_POINTS_ROUNDS) numPR = MAX_POINTS_ROUNDS;
+      state.numRoundsPoints = numPR;
+
+      const numInput = document.getElementById('num-arrows-input');
+      let numA = parseInt(numInput.value, 10);
+      if (!numA || numA < MIN_POINTS_ARROWS) numA = MIN_POINTS_ARROWS;
+      if (numA > MAX_POINTS_ARROWS) numA = MAX_POINTS_ARROWS;
+      state.numArrows = numA;
+      state.pointsScores = makePointsScores(state.numPlayers, numA, numPR);
+      state.pointsRound = 0;
+      state.picker = null;
+      state.pointsHistory = [];
+      state.pointsStatsRecorded = false;
+      state.screen = 'game-points';
+    } else if (state.mode === 'lotto') {
+      const roundsInput = document.getElementById('num-rounds-input');
+      let numR = parseInt(roundsInput.value, 10);
+      if (!numR || numR < MIN_LOTTO_ROUNDS) numR = MIN_LOTTO_ROUNDS;
+      if (numR > MAX_LOTTO_ROUNDS) numR = MAX_LOTTO_ROUNDS;
+      state.numRoundsLotto = numR;
+
+      const arrowsInput = document.getElementById('num-lotto-arrows-input');
+      let numLA = parseInt(arrowsInput.value, 10);
+      if (!numLA || numLA < MIN_LOTTO_ARROWS) numLA = MIN_LOTTO_ARROWS;
+      if (numLA > MAX_LOTTO_ARROWS) numLA = MAX_LOTTO_ARROWS;
+      state.lottoArrowsPerRound = numLA;
+
+      const lotto = makeLottoState(state.numPlayers, numR);
+      state.lottoCalls = lotto.calls;
+      state.lottoScores = lotto.scores;
+      state.lottoRound = 0;
+      state.lottoHistory = [];
+      state.lottoStatsRecorded = false;
+      state.screen = 'game-lotto';
+    } else if (state.mode === 'null') {
+      const nullArrowsInput = document.getElementById('num-null-arrows-input');
+      let numNA = parseInt(nullArrowsInput.value, 10);
+      if (!numNA || numNA < MIN_NULL_ARROWS) numNA = MIN_NULL_ARROWS;
+      if (numNA > MAX_NULL_ARROWS) numNA = MAX_NULL_ARROWS;
+      state.nullArrowsPerTurn = numNA;
+      state.nullScores = new Array(state.numPlayers).fill(state.nullStartScore);
+      state.nullArrowsUsed = new Array(state.numPlayers).fill(0);
+      state.nullActive = 0;
+      state.nullTurnArrows = [];
+      state.nullFinishOrder = [];
+      state.nullHistory = [];
+      state.nullBustMessage = null;
+      state.nullStatsRecorded = false;
+      state.screen = 'game-null';
+    }
+    render();
+  }
+
+  if (action === 'go-stats') {
+    state.screen = 'stats';
+    render();
+  }
+  if (action === 'back-to-mode-from-stats') {
+    state.screen = 'mode';
+    render();
+  }
+  if (action === 'clear-stats') {
+    if (confirm('Gesamte Statistik der letzten 7 Tage löschen?')) {
+      try { localStorage.removeItem(STATS_KEY); } catch (e) {}
+      render();
+    }
+  }
+
+  if (action === 'toggle-pause') {
+    const p = parseInt(target.dataset.player, 10);
+    const idx = state.pausedPlayers.indexOf(p);
+    if (idx === -1) {
+      state.pausedPlayers.push(p);
+      if (state.mode === 'tree' && state.active === p) {
+        const alt = activePlayerIndices()[0];
+        if (alt !== undefined) state.active = alt;
+      }
+      if (state.mode === 'null' && state.nullActive === p && !state.nullFinishOrder.includes(p)) {
+        state.nullActive = nextActiveNullPlayer(p);
+      }
+    } else {
+      state.pausedPlayers.splice(idx, 1);
+    }
+    render();
+  }
+
+  if (action === 'go-home') {
+    if (state.isSpectator) {
+      if (typeof window.fbLeaveSession === 'function') {
+        try { window.fbLeaveSession(); } catch (e) {}
+      }
+      resetToStart();
+      render();
+    } else if (confirm('Zurück zum Start? Der aktuelle Fortschritt geht verloren.')) {
+      resetToStart();
+      render();
+    }
+  }
+
+  if (action === 'switch-game') {
+    if (confirm('Zurück zum Spielmenü? Der Fortschritt in diesem Spiel geht verloren – Namen und Spieleranzahl bleiben erhalten.')) {
+      state.mode = null;
+      state.screen = 'mode';
+      state.tiebreak = null;
+      render();
+    }
+  }
+
+  /* --- tree actions --- */
+  if (action === 'select-player') {
+    state.active = parseInt(target.dataset.player, 10);
+    render();
+    const card = document.getElementById('tree-card-' + state.active);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  if (action === 'hit-cell') {
+    const p = parseInt(target.dataset.player, 10);
+    const r = parseInt(target.dataset.row, 10);
+    const col = parseInt(target.dataset.col, 10);
+    if (state.trees[p][r][col] === true) return;
+    state.trees[p][r][col] = true;
+    state.history.push({ p, r, col });
+    if (isTreeComplete(state.trees[p]) && !state.treeFinishOrder.includes(p)) {
+      state.treeFinishOrder.push(p);
+      if (!state.treeStatsRecorded) {
+        recordGameResult('tree', state.playerNames[state.treeFinishOrder[0]]);
+        state.treeStatsRecorded = true;
+      }
+    }
+    render();
+  }
+  if (action === 'undo') {
+    const last = state.history.pop();
+    if (last) {
+      state.trees[last.p][last.r][last.col] = false;
+      state.treeFinishOrder = state.treeFinishOrder.filter(pl => isTreeComplete(state.trees[pl]));
+      render();
+    }
+  }
+  if (action === 'reset') {
+    if (confirm('Spiel wirklich zurücksetzen? Alle Treffer gehen verloren.')) {
+      state.trees = Array.from({ length: state.numPlayers }, () => makeTree());
+      state.history = [];
+      state.active = 0;
+      state.treeFinishOrder = [];
+      state.treeStatsRecorded = false;
+      render();
+    }
+  }
+
+  /* --- points actions --- */
+  if (action === 'select-round') {
+    state.pointsRound = parseInt(target.dataset.round, 10);
+    state.picker = null;
+    render();
+  }
+  if (action === 'open-picker') {
+    const p = parseInt(target.dataset.player, 10);
+    const round = parseInt(target.dataset.round, 10);
+    const idx = parseInt(target.dataset.idx, 10);
+    if (state.picker && state.picker.player === p && state.picker.round === round && state.picker.idx === idx) {
+      state.picker = null;
+    } else {
+      state.picker = { player: p, round, idx };
+    }
+    render();
+  }
+  if (action === 'close-picker') {
+    state.picker = null;
+    render();
+  }
+  if (action === 'pick-score') {
+    const p = parseInt(target.dataset.player, 10);
+    const round = parseInt(target.dataset.round, 10);
+    const idx = parseInt(target.dataset.idx, 10);
+    const value = parseInt(target.dataset.value, 10);
+    const prevValue = state.pointsScores[p][round][idx];
+    state.pointsScores[p][round][idx] = value;
+    state.pointsHistory.push({ p, round, idx, prevValue });
+
+    const arr = state.pointsScores[p][round];
+    const nextIdx = arr.findIndex((v, i) => i > idx && v === null);
+    state.picker = nextIdx !== -1 ? { player: p, round, idx: nextIdx } : null;
+    render();
+  }
+  if (action === 'undo-points') {
+    const last = state.pointsHistory.pop();
+    if (last) {
+      state.pointsScores[last.p][last.round][last.idx] = last.prevValue;
+      state.picker = { player: last.p, round: last.round, idx: last.idx };
+      render();
+    }
+  }
+  if (action === 'reset-points') {
+    if (confirm('Spiel wirklich zurücksetzen? Alle Punkte gehen verloren.')) {
+      state.pointsScores = makePointsScores(state.numPlayers, state.numArrows, state.numRoundsPoints);
+      state.pointsRound = 0;
+      state.picker = null;
+      state.pointsHistory = [];
+      state.pointsStatsRecorded = false;
+      state.tiebreak = null;
+      render();
+    }
+  }
+
+  /* --- lotto actions --- */
+  if (action === 'select-lotto-round') {
+    state.lottoRound = parseInt(target.dataset.round, 10);
+    render();
+  }
+  if (action === 'draw-lotto') {
+    const round = parseInt(target.dataset.round, 10);
+    state.lottoCalls[round] = drawLottoCall(state.lottoVariant, state.lottoArrowsPerRound);
+    render();
+  }
+  if (action === 'pick-lotto-hits') {
+    const p = parseInt(target.dataset.player, 10);
+    const round = parseInt(target.dataset.round, 10);
+    const hits = parseInt(target.dataset.hits, 10);
+    const prevHits = state.lottoScores[p][round];
+    state.lottoScores[p][round] = (prevHits === hits) ? null : hits;
+    state.lottoHistory.push({ p, round, prevHits });
+    render();
+  }
+  if (action === 'undo-lotto') {
+    const last = state.lottoHistory.pop();
+    if (last) {
+      state.lottoScores[last.p][last.round] = last.prevHits;
+      render();
+    }
+  }
+  if (action === 'reset-lotto') {
+    if (confirm('Spiel wirklich zurücksetzen? Alle Zahlen und Punkte gehen verloren.')) {
+      const lotto = makeLottoState(state.numPlayers, state.numRoundsLotto);
+      state.lottoCalls = lotto.calls;
+      state.lottoScores = lotto.scores;
+      state.lottoRound = 0;
+      state.lottoHistory = [];
+      state.lottoStatsRecorded = false;
+      state.tiebreak = null;
+      render();
+    }
+  }
+
+  /* --- Stechen (Tiebreak) actions --- */
+  if (action === 'tiebreak-answer-points') {
+    const p = parseInt(target.dataset.player, 10);
+    const value = parseInt(target.dataset.value, 10);
+    state.tiebreak.answers[p] = value;
+    evaluateTiebreakAttempt();
+    render();
+  }
+  if (action === 'tiebreak-answer-lotto') {
+    const p = parseInt(target.dataset.player, 10);
+    const hit = target.dataset.hit === '1';
+    state.tiebreak.answers[p] = hit;
+    evaluateTiebreakAttempt();
+    render();
+  }
+
+  /* --- nullschuss actions --- */
+  if (action === 'pick-null-arrow') {
+    if (state.nullFinishOrder.includes(state.nullActive)) return;
+    state.nullBustMessage = null;
+    const value = parseInt(target.dataset.value, 10);
+
+    state.nullHistory.push(JSON.parse(JSON.stringify({
+      scores: state.nullScores,
+      active: state.nullActive,
+      turnArrows: state.nullTurnArrows,
+      finishOrder: state.nullFinishOrder,
+      arrowsUsed: state.nullArrowsUsed,
+    })));
+
+    const p = state.nullActive;
+    state.nullTurnArrows.push(value);
+    state.nullArrowsUsed[p] = (state.nullArrowsUsed[p] || 0) + 1;
+    const running = state.nullScores[p] - state.nullTurnArrows.reduce((s, v) => s + v, 0);
+
+    if (running < 0) {
+      state.nullBustMessage = { player: p };
+      state.nullTurnArrows = [];
+      state.nullActive = nextActiveNullPlayer(p);
+    } else if (running === 0) {
+      state.nullScores[p] = 0;
+      state.nullTurnArrows = [];
+      if (!state.nullFinishOrder.includes(p)) state.nullFinishOrder.push(p);
+      const allActiveDone = activePlayerIndices().every(pl => state.nullFinishOrder.includes(pl));
+      if (allActiveDone) {
+        if (!state.nullStatsRecorded) {
+          const ranked = [...state.nullFinishOrder].sort((a, b) => state.nullArrowsUsed[a] - state.nullArrowsUsed[b]);
+          recordGameResult('null', state.playerNames[ranked[0]]);
+          state.nullStatsRecorded = true;
+        }
+      } else {
+        state.nullActive = nextActiveNullPlayer(p);
+      }
+    } else if (state.nullTurnArrows.length === state.nullArrowsPerTurn) {
+      state.nullScores[p] = running;
+      state.nullTurnArrows = [];
+      state.nullActive = nextActiveNullPlayer(p);
+    }
+    render();
+  }
+  if (action === 'undo-null') {
+    const last = state.nullHistory.pop();
+    if (last) {
+      state.nullScores = last.scores;
+      state.nullActive = last.active;
+      state.nullTurnArrows = last.turnArrows;
+      state.nullFinishOrder = last.finishOrder;
+      state.nullArrowsUsed = last.arrowsUsed;
+      state.nullBustMessage = null;
+      render();
+    }
+  }
+  if (action === 'reset-null') {
+    if (confirm('Spiel wirklich zurücksetzen? Alle Punktestände gehen verloren.')) {
+      state.nullScores = new Array(state.numPlayers).fill(state.nullStartScore);
+      state.nullArrowsUsed = new Array(state.numPlayers).fill(0);
+      state.nullActive = 0;
+      state.nullTurnArrows = [];
+      state.nullFinishOrder = [];
+      state.nullHistory = [];
+      state.nullBustMessage = null;
+      state.nullStatsRecorded = false;
+      render();
+    }
+  }
+});
+
+// Abo-Status: wird von der iOS-App per URL-Parameter übergeben ('single' oder 'multi').
+// Ohne Parameter (z.B. normale Web-Nutzung) bleibt alles freigeschaltet.
+const urlEntitlement = new URLSearchParams(window.location.search).get('entitlement');
+if (urlEntitlement === 'single' || urlEntitlement === 'multi') {
+  state.entitlement = urlEntitlement;
+}
+
+// Wird von der nativen iOS-App aufgerufen, wenn sich der Abo-Status ändert
+// (z.B. nach einem Upgrade-Kauf), ohne die laufende Partie neu zu laden.
+window.updateEntitlement = function (newEntitlement) {
+  if (newEntitlement !== 'single' && newEntitlement !== 'multi') return;
+  state.entitlement = newEntitlement;
+  render();
+};
+
+const urlCode = new URLSearchParams(window.location.search).get('code');
+if (urlCode && /^\d{4}$/.test(urlCode)) {
+  attemptJoin(urlCode);
+} else {
+  render();
+}
+</script>
+</body>
+</html>
