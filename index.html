@@ -383,20 +383,6 @@
 .max-w-2xl{max-width:42rem;}
 .max-w-md{max-width:28rem;}
 .mx-auto{margin-left:auto;margin-right:auto;}
-
-/* ===== Responsives Layout fuer groessere Bildschirme (iPad etc.) =====
-   Reagiert auf verfuegbare Fensterbreite, nicht auf Geraetetyp - funktioniert
-   dadurch auch korrekt bei Split View / Slide Over und in beiden Ausrichtungen. */
-@media (min-width:700px){
-  #app{max-width:48rem;}
-  .form-card{max-width:30rem;margin-left:auto;margin-right:auto;}
-  .grid-cols-1.sm\:grid-cols-2{gap:1.25rem;}
-}
-@media (min-width:1000px){
-  #app{max-width:68rem;padding-left:2rem;padding-right:2rem;}
-  .lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr));}
-  .lg\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr));}
-}
 .rounded-lg{border-radius:0.5rem;}
 .rounded-xl{border-radius:0.75rem;}
 .rounded-2xl{border-radius:1rem;}
@@ -719,145 +705,6 @@ button:disabled{cursor:not-allowed;}
     if (fbUnsubscribe) { fbUnsubscribe(); fbUnsubscribe = null; }
   };
 
-  function generateNineDigitCode() {
-    return String(Math.floor(100000000 + Math.random() * 900000000));
-  }
-
-  // Karenzzeit: registrierte Profile ohne Verlaengerung (kein aktives Registrierungs- bzw.
-  // Single-/Multi-Device-Abo mehr) werden nach dieser Zeit beim naechsten Zugriff als
-  // "nicht gefunden" behandelt und geloescht. Es gibt bewusst KEINE automatische
-  // Hintergrund-Bereinigung (keine Cloud Function/Blaze-Tarif vorhanden) - die Loeschung
-  // passiert erst beim naechsten tatsaechlichen Zugriff auf den Code.
-  const REGISTRATION_GRACE_MS = 90 * 24 * 60 * 60 * 1000;
-
-  function isRegistrationExpired(profileVal) {
-    if (!profileVal || !profileVal.lastRenewedAt) return false;
-    return (Date.now() - profileVal.lastRenewedAt) > REGISTRATION_GRACE_MS;
-  }
-
-  // Registriert ein Nutzerprofil zentral unter einem neuen, eindeutigen 9-stelligen Code.
-  // Prueft auf Kollisionen (sehr unwahrscheinlich bei 9 Ziffern, aber zur Sicherheit).
-  window.fbRegisterUser = async function (profile) {
-    const ok = await fbInit();
-    if (!ok) return { error: 'not-configured' };
-    const { ref, get, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const code = generateNineDigitCode();
-      try {
-        const snap = await get(ref(fbDb, 'users/' + code));
-        if (snap.exists()) continue;
-        await set(ref(fbDb, 'users/' + code), { ...profile, lastRenewedAt: Date.now() });
-        return { code };
-      } catch (e) {
-        console.error('Firebase register error', e);
-        return { error: 'write-failed' };
-      }
-    }
-    return { error: 'no-code-available' };
-  };
-
-  window.fbLookupUser = async function (code) {
-    const ok = await fbInit();
-    if (!ok) return { error: 'not-configured' };
-    const { ref, get, remove } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
-    try {
-      const nodeRef = ref(fbDb, 'users/' + code);
-      const snap = await get(nodeRef);
-      if (!snap.exists()) return { error: 'not-found' };
-      const val = snap.val();
-      if (isRegistrationExpired(val)) {
-        remove(nodeRef).catch(() => {});
-        return { error: 'not-found' };
-      }
-      return { profile: val };
-    } catch (e) {
-      console.error('Firebase user lookup error', e);
-      return { error: 'lookup-failed' };
-    }
-  };
-
-  // Verlaengert die Karenzzeit eines zentral registrierten Profils ("Heartbeat"). Wird von
-  // der App aufgerufen, sobald auf diesem Geraet eine gueltige Registrierungsberechtigung
-  // (Single-/Multi-Device-Abo oder das eigenstaendige Registrierungs-Abo) erkannt wird.
-  window.fbRenewRegistration = async function (code) {
-    const ok = await fbInit();
-    if (!ok) return { error: 'not-configured' };
-    const { ref, get, update } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
-    try {
-      const nodeRef = ref(fbDb, 'users/' + code);
-      const snap = await get(nodeRef);
-      if (!snap.exists()) return { error: 'not-found' };
-      await update(nodeRef, { lastRenewedAt: Date.now() });
-      return { ok: true };
-    } catch (e) {
-      console.error('Firebase renew error', e);
-      return { error: 'renew-failed' };
-    }
-  };
-
-  // Spiegelt eine abgeschlossene Leistungsbogen-Session eines zentral registrierten
-  // Schuetzen zusaetzlich in die Cloud, damit sie auf jedem Geraet sichtbar wird.
-  window.fbPushTrainingSession = async function (code, session) {
-    const ok = await fbInit();
-    if (!ok) return { error: 'not-configured' };
-    const { ref, push, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
-    try {
-      const listRef = ref(fbDb, 'users/' + code + '/trainingSessions');
-      const newRef = push(listRef);
-      await set(newRef, session);
-      return { ok: true };
-    } catch (e) {
-      console.error('Firebase training push error', e);
-      return { error: 'write-failed' };
-    }
-  };
-
-  window.fbFetchTrainingSessions = async function (code) {
-    const ok = await fbInit();
-    if (!ok) return { error: 'not-configured' };
-    const { ref, get, remove } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
-    try {
-      const nodeRef = ref(fbDb, 'users/' + code);
-      const snap = await get(nodeRef);
-      if (!snap.exists()) return { sessions: [] };
-      const val = snap.val();
-      if (isRegistrationExpired(val)) {
-        remove(nodeRef).catch(() => {});
-        return { error: 'not-found' };
-      }
-      const sessions = val.trainingSessions ? Object.values(val.trainingSessions) : [];
-      return { sessions };
-    } catch (e) {
-      console.error('Firebase training fetch error', e);
-      return { error: 'fetch-failed' };
-    }
-  };
-
-  // Laedt ein anonym gespendetes Trainingsfoto (bereits EXIF-frei, da aus <canvas>
-  // re-exportiert) samt Tipp-Positionen in Firebase Storage/Realtime Database hoch.
-  // KEINE Verknuepfung zu Name, Profil oder zentralem Code - komplett anonym.
-  window.fbUploadTrainingPhoto = async function (dataUrl, metadata) {
-    const ok = await fbInit();
-    if (!ok) return { error: 'not-configured' };
-    try {
-      const { getStorage, ref: storageRef, uploadString } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js');
-      const { ref, set } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js');
-      const storage = getStorage(fbApp);
-      const id = 'donation_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-      const imgRef = storageRef(storage, 'training-photos/' + id + '.jpg');
-      await uploadString(imgRef, dataUrl, 'data_url');
-      await set(ref(fbDb, 'trainingPhotoDonations/' + id), {
-        ...metadata,
-        photoPath: 'training-photos/' + id + '.jpg',
-        createdAt: Date.now(),
-      });
-      return { ok: true };
-    } catch (e) {
-      console.error('Firebase photo upload error', e);
-      return { error: 'upload-failed' };
-    }
-  };
-
   window.fbConfigured = !firebaseConfig.apiKey.startsWith('TODO_');
 </script>
 
@@ -913,149 +760,6 @@ const MIN_LOTTO_ROUNDS = 1;
 const MAX_LOTTO_ROUNDS = 5;
 const MIN_LOTTO_ARROWS = 3;
 const MAX_LOTTO_ARROWS = 6;
-
-const MIN_TRAINING_ARROWS = 3;
-
-/* ---------- Schießbuch: Foto-Erfassung (Trefferbild-Analyse) ---------- */
-// Vereinfachtes Modell: 10 gleich breite konzentrische Ringe von der Mitte (10 Punkte)
-// bis zum äußeren Rand (0/Fehler). Bewusst einfach gehalten - Genauigkeit ist hier
-// zweitrangig gegenueber der Tendenz-Aussage (siehe computeTendency).
-function computeScoreFromDistance(dist, maxRadius) {
-  if (maxRadius <= 0) return 0;
-  const ratio = dist / maxRadius;
-  let score = Math.round(10 - 10 * ratio);
-  if (score < 0) score = 0;
-  if (score > 10) score = 10;
-  return score;
-}
-
-// Schwelle, unterhalb derer die durchschnittliche Abweichung als "gut zentriert" gilt
-// (kein klarer Richtungs-Ausreisser), statt eine der 8 Richtungen zu erzwingen.
-const TENDENCY_CENTERED_THRESHOLD = 0.15;
-
-function computeTendency(center, taps, maxRadius) {
-  if (taps.length === 0 || maxRadius <= 0) return null;
-  let sumDx = 0, sumDy = 0;
-  taps.forEach(t => { sumDx += (t.x - center.x); sumDy += (t.y - center.y); });
-  const avgDx = sumDx / taps.length;
-  const avgDy = sumDy / taps.length;
-  const dist = Math.sqrt(avgDx * avgDx + avgDy * avgDy);
-  const ratio = dist / maxRadius;
-  if (ratio < TENDENCY_CENTERED_THRESHOLD) {
-    return { direction: 'centered', ratio };
-  }
-  // Bildkoordinaten: Y waechst nach unten - fuer "oben" muessen wir avgDy umkehren.
-  const angle = Math.atan2(-avgDy, avgDx) * 180 / Math.PI; // -180..180, 0=rechts, 90=oben
-  let direction;
-  if (angle >= -22.5 && angle < 22.5) direction = 'right';
-  else if (angle >= 22.5 && angle < 67.5) direction = 'top_right';
-  else if (angle >= 67.5 && angle < 112.5) direction = 'top';
-  else if (angle >= 112.5 && angle < 157.5) direction = 'top_left';
-  else if (angle >= 157.5 || angle < -157.5) direction = 'left';
-  else if (angle >= -157.5 && angle < -112.5) direction = 'bottom_left';
-  else if (angle >= -112.5 && angle < -67.5) direction = 'bottom';
-  else direction = 'bottom_right';
-  return { direction, ratio };
-}
-const MAX_TRAINING_ARROWS = 6;
-const TRAINING_STATS_KEY = 'archeryArenaTrainingStats_v1';
-const CURRENT_COUNTRY_KEY = 'archeryArenaCurrentCountry_v1';
-
-/* ---------- Weltkarte: Kontinente & Länder (repräsentative Auswahl, nicht erschöpfend) ---------- */
-const CONTINENTS = [
-  { key: 'europe', flag: '🌍', de: 'Europa', en: 'Europe', fr: 'Europe' },
-  { key: 'asia', flag: '🌏', de: 'Asien', en: 'Asia', fr: 'Asie' },
-  { key: 'africa', flag: '🌍', de: 'Afrika', en: 'Africa', fr: 'Afrique' },
-  { key: 'north_america', flag: '🌎', de: 'Nordamerika', en: 'North America', fr: 'Amérique du Nord' },
-  { key: 'south_america', flag: '🌎', de: 'Südamerika', en: 'South America', fr: 'Amérique du Sud' },
-  { key: 'oceania', flag: '🌏', de: 'Ozeanien', en: 'Oceania', fr: 'Océanie' },
-];
-
-const COUNTRIES = [
-  // Europa
-  { code: 'DE', continent: 'europe', flag: '🇩🇪', de: 'Deutschland', en: 'Germany', fr: 'Allemagne' },
-  { code: 'FR', continent: 'europe', flag: '🇫🇷', de: 'Frankreich', en: 'France', fr: 'France' },
-  { code: 'ES', continent: 'europe', flag: '🇪🇸', de: 'Spanien', en: 'Spain', fr: 'Espagne' },
-  { code: 'IT', continent: 'europe', flag: '🇮🇹', de: 'Italien', en: 'Italy', fr: 'Italie' },
-  { code: 'PT', continent: 'europe', flag: '🇵🇹', de: 'Portugal', en: 'Portugal', fr: 'Portugal' },
-  { code: 'AT', continent: 'europe', flag: '🇦🇹', de: 'Österreich', en: 'Austria', fr: 'Autriche' },
-  { code: 'CH', continent: 'europe', flag: '🇨🇭', de: 'Schweiz', en: 'Switzerland', fr: 'Suisse' },
-  { code: 'NL', continent: 'europe', flag: '🇳🇱', de: 'Niederlande', en: 'Netherlands', fr: 'Pays-Bas' },
-  { code: 'BE', continent: 'europe', flag: '🇧🇪', de: 'Belgien', en: 'Belgium', fr: 'Belgique' },
-  { code: 'GB', continent: 'europe', flag: '🇬🇧', de: 'Vereinigtes Königreich', en: 'United Kingdom', fr: 'Royaume-Uni' },
-  { code: 'IE', continent: 'europe', flag: '🇮🇪', de: 'Irland', en: 'Ireland', fr: 'Irlande' },
-  { code: 'PL', continent: 'europe', flag: '🇵🇱', de: 'Polen', en: 'Poland', fr: 'Pologne' },
-  { code: 'CZ', continent: 'europe', flag: '🇨🇿', de: 'Tschechien', en: 'Czech Republic', fr: 'Tchéquie' },
-  { code: 'GR', continent: 'europe', flag: '🇬🇷', de: 'Griechenland', en: 'Greece', fr: 'Grèce' },
-  { code: 'SE', continent: 'europe', flag: '🇸🇪', de: 'Schweden', en: 'Sweden', fr: 'Suède' },
-  { code: 'NO', continent: 'europe', flag: '🇳🇴', de: 'Norwegen', en: 'Norway', fr: 'Norvège' },
-  { code: 'DK', continent: 'europe', flag: '🇩🇰', de: 'Dänemark', en: 'Denmark', fr: 'Danemark' },
-  { code: 'FI', continent: 'europe', flag: '🇫🇮', de: 'Finnland', en: 'Finland', fr: 'Finlande' },
-  { code: 'TR', continent: 'europe', flag: '🇹🇷', de: 'Türkei', en: 'Turkey', fr: 'Turquie' },
-  { code: 'HR', continent: 'europe', flag: '🇭🇷', de: 'Kroatien', en: 'Croatia', fr: 'Croatie' },
-  // Asien
-  { code: 'CN', continent: 'asia', flag: '🇨🇳', de: 'China', en: 'China', fr: 'Chine' },
-  { code: 'JP', continent: 'asia', flag: '🇯🇵', de: 'Japan', en: 'Japan', fr: 'Japon' },
-  { code: 'KR', continent: 'asia', flag: '🇰🇷', de: 'Südkorea', en: 'South Korea', fr: 'Corée du Sud' },
-  { code: 'IN', continent: 'asia', flag: '🇮🇳', de: 'Indien', en: 'India', fr: 'Inde' },
-  { code: 'TH', continent: 'asia', flag: '🇹🇭', de: 'Thailand', en: 'Thailand', fr: 'Thaïlande' },
-  { code: 'VN', continent: 'asia', flag: '🇻🇳', de: 'Vietnam', en: 'Vietnam', fr: 'Viêt Nam' },
-  { code: 'ID', continent: 'asia', flag: '🇮🇩', de: 'Indonesien', en: 'Indonesia', fr: 'Indonésie' },
-  { code: 'MY', continent: 'asia', flag: '🇲🇾', de: 'Malaysia', en: 'Malaysia', fr: 'Malaisie' },
-  { code: 'PH', continent: 'asia', flag: '🇵🇭', de: 'Philippinen', en: 'Philippines', fr: 'Philippines' },
-  { code: 'SG', continent: 'asia', flag: '🇸🇬', de: 'Singapur', en: 'Singapore', fr: 'Singapour' },
-  { code: 'AE', continent: 'asia', flag: '🇦🇪', de: 'Vereinigte Arabische Emirate', en: 'United Arab Emirates', fr: 'Émirats arabes unis' },
-  { code: 'IL', continent: 'asia', flag: '🇮🇱', de: 'Israel', en: 'Israel', fr: 'Israël' },
-  { code: 'SA', continent: 'asia', flag: '🇸🇦', de: 'Saudi-Arabien', en: 'Saudi Arabia', fr: 'Arabie saoudite' },
-  { code: 'KZ', continent: 'asia', flag: '🇰🇿', de: 'Kasachstan', en: 'Kazakhstan', fr: 'Kazakhstan' },
-  // Afrika
-  { code: 'EG', continent: 'africa', flag: '🇪🇬', de: 'Ägypten', en: 'Egypt', fr: 'Égypte' },
-  { code: 'ZA', continent: 'africa', flag: '🇿🇦', de: 'Südafrika', en: 'South Africa', fr: 'Afrique du Sud' },
-  { code: 'MA', continent: 'africa', flag: '🇲🇦', de: 'Marokko', en: 'Morocco', fr: 'Maroc' },
-  { code: 'KE', continent: 'africa', flag: '🇰🇪', de: 'Kenia', en: 'Kenya', fr: 'Kenya' },
-  { code: 'NG', continent: 'africa', flag: '🇳🇬', de: 'Nigeria', en: 'Nigeria', fr: 'Nigéria' },
-  { code: 'TN', continent: 'africa', flag: '🇹🇳', de: 'Tunesien', en: 'Tunisia', fr: 'Tunisie' },
-  { code: 'GH', continent: 'africa', flag: '🇬🇭', de: 'Ghana', en: 'Ghana', fr: 'Ghana' },
-  { code: 'ET', continent: 'africa', flag: '🇪🇹', de: 'Äthiopien', en: 'Ethiopia', fr: 'Éthiopie' },
-  // Nordamerika
-  { code: 'US', continent: 'north_america', flag: '🇺🇸', de: 'USA', en: 'United States', fr: 'États-Unis' },
-  { code: 'CA', continent: 'north_america', flag: '🇨🇦', de: 'Kanada', en: 'Canada', fr: 'Canada' },
-  { code: 'MX', continent: 'north_america', flag: '🇲🇽', de: 'Mexiko', en: 'Mexico', fr: 'Mexique' },
-  { code: 'CR', continent: 'north_america', flag: '🇨🇷', de: 'Costa Rica', en: 'Costa Rica', fr: 'Costa Rica' },
-  { code: 'CU', continent: 'north_america', flag: '🇨🇺', de: 'Kuba', en: 'Cuba', fr: 'Cuba' },
-  { code: 'DO', continent: 'north_america', flag: '🇩🇴', de: 'Dominikanische Republik', en: 'Dominican Republic', fr: 'République dominicaine' },
-  { code: 'PA', continent: 'north_america', flag: '🇵🇦', de: 'Panama', en: 'Panama', fr: 'Panama' },
-  // Südamerika
-  { code: 'BR', continent: 'south_america', flag: '🇧🇷', de: 'Brasilien', en: 'Brazil', fr: 'Brésil' },
-  { code: 'AR', continent: 'south_america', flag: '🇦🇷', de: 'Argentinien', en: 'Argentina', fr: 'Argentine' },
-  { code: 'CL', continent: 'south_america', flag: '🇨🇱', de: 'Chile', en: 'Chile', fr: 'Chili' },
-  { code: 'PE', continent: 'south_america', flag: '🇵🇪', de: 'Peru', en: 'Peru', fr: 'Pérou' },
-  { code: 'CO', continent: 'south_america', flag: '🇨🇴', de: 'Kolumbien', en: 'Colombia', fr: 'Colombie' },
-  { code: 'EC', continent: 'south_america', flag: '🇪🇨', de: 'Ecuador', en: 'Ecuador', fr: 'Équateur' },
-  { code: 'UY', continent: 'south_america', flag: '🇺🇾', de: 'Uruguay', en: 'Uruguay', fr: 'Uruguay' },
-  // Ozeanien
-  { code: 'AU', continent: 'oceania', flag: '🇦🇺', de: 'Australien', en: 'Australia', fr: 'Australie' },
-  { code: 'NZ', continent: 'oceania', flag: '🇳🇿', de: 'Neuseeland', en: 'New Zealand', fr: 'Nouvelle-Zélande' },
-  { code: 'FJ', continent: 'oceania', flag: '🇫🇯', de: 'Fidschi', en: 'Fiji', fr: 'Fidji' },
-  { code: 'PG', continent: 'oceania', flag: '🇵🇬', de: 'Papua-Neuguinea', en: 'Papua New Guinea', fr: 'Papouasie-Nouvelle-Guinée' },
-];
-
-function countryName(code) {
-  const c = COUNTRIES.find(x => x.code === code);
-  if (!c) return code;
-  return c[state.language] || c.de;
-}
-function continentName(key) {
-  const c = CONTINENTS.find(x => x.key === key);
-  if (!c) return key;
-  return c[state.language] || c.de;
-}
-function loadCurrentCountry() {
-  try { return localStorage.getItem(CURRENT_COUNTRY_KEY) || null; } catch (e) { return null; }
-}
-function saveCurrentCountry(code) {
-  try { localStorage.setItem(CURRENT_COUNTRY_KEY, code); } catch (e) {}
-}
 
 function hitPoints(h) {
   return h === 0 ? 0 : 2 * h - 1;
@@ -1152,202 +856,6 @@ function saveUserProfiles(list) {
   try { localStorage.setItem(USER_PROFILES_KEY, JSON.stringify(list)); } catch (e) {}
 }
 
-const REGISTRATION_HINT_DISMISSED_KEY = 'archeryArenaRegistrationHintDismissed_v1';
-
-function hasAnyLocalRegisteredProfile() {
-  return loadUserProfiles().some(p => p.centralCode);
-}
-function loadRegistrationHintDismissed() {
-  try { return localStorage.getItem(REGISTRATION_HINT_DISMISSED_KEY) === 'true'; } catch (e) { return false; }
-}
-function dismissRegistrationHint() {
-  state.showRegistrationHint = false;
-  try { localStorage.setItem(REGISTRATION_HINT_DISMISSED_KEY, 'true'); } catch (e) {}
-  render();
-}
-// Prueft, ob nach einem Abo-Wechsel der Hinweis "zentrale Registrierung jetzt kostenlos
-// inklusive" gezeigt werden soll: nur bei Single/Multi Device, nur wenn noch kein lokales
-// Profil registriert ist, und nur wenn der Hinweis nicht schon dauerhaft weggeklickt wurde.
-function maybeShowRegistrationHint() {
-  if (state.entitlement !== 'single' && state.entitlement !== 'multi') return;
-  if (hasAnyLocalRegisteredProfile()) return;
-  if (loadRegistrationHintDismissed()) return;
-  state.showRegistrationHint = true;
-}
-
-function formatNineDigitCode(code) {
-  if (!code || code.length !== 9) return code;
-  return code.slice(0, 3) + ' ' + code.slice(3, 6) + ' ' + code.slice(6, 9);
-}
-
-// Registriert ein bereits lokal gespeichertes Nutzerprofil zentral in Firebase und
-// hinterlegt den erhaltenen 9-stelligen Code am lokalen Profil (nur zur Anzeige/Weitergabe -
-// die eigentliche "Wahrheit" liegt ab jetzt zentral unter users/{code}).
-function hasRegistrationAccess() {
-  return state.entitlement === 'single' || state.entitlement === 'multi' || state.hasRegistrationEntitlement;
-}
-
-async function registerUserCentrally(userId) {
-  const checkbox = document.getElementById('register-consent-checkbox');
-  if (!checkbox || !checkbox.checked) {
-    state.registerError = t('register_consent_required');
-    render();
-    return;
-  }
-
-  if (hasRegistrationAccess()) {
-    // Im aktiven Single-/Multi-Device-Abo enthalten ODER eigenes Registrierungs-Abo
-    // aktiv - direkt registrieren, kein zusaetzlicher Kauf noetig.
-    await performCentralRegistration(userId);
-    return;
-  }
-
-  // Kein passendes Abo: zeigt die native Paywall, dort kann u.a. das guenstige
-  // "Nur zentrale Registrierung"-Jahresabo gekauft werden (0,99 €/Jahr). Das
-  // Ergebnis kommt ueber window.updateEntitlement/updateRegistrationEntitlement zurueck.
-  state.pendingRegistrationUserId = userId;
-  state.registerBusy = true;
-  state.registerError = null;
-  render();
-  window.location.href = 'archeryarena://upgrade';
-}
-
-// Wird nach erfolgreichem Kauf/Abo-Wechsel aufgerufen (siehe window.updateEntitlement und
-// window.updateRegistrationEntitlement weiter unten). Setzt eine evtl. wartende
-// Registrierung fort, sobald irgendeine Form von Registrierungsberechtigung vorliegt.
-function continuePendingRegistrationIfEligible() {
-  if (!state.pendingRegistrationUserId) return;
-  if (!hasRegistrationAccess()) return;
-  const userId = state.pendingRegistrationUserId;
-  state.pendingRegistrationUserId = null;
-  performCentralRegistration(userId);
-}
-
-async function performCentralRegistration(userId) {
-  const profiles = loadUserProfiles();
-  const profile = profiles.find(p => p.id === userId);
-  if (!profile) {
-    state.registerBusy = false;
-    render();
-    return;
-  }
-
-  state.registerBusy = true;
-  state.registerError = null;
-  render();
-
-  if (typeof window.fbRegisterUser !== 'function' || !window.fbConfigured) {
-    state.registerBusy = false;
-    state.registerError = t('register_unavailable');
-    render();
-    return;
-  }
-
-  const result = await window.fbRegisterUser({
-    firstName: profile.firstName,
-    lastName: profile.lastName,
-    nickname: profile.nickname,
-  });
-
-  state.registerBusy = false;
-  if (result && result.code) {
-    profile.centralCode = result.code;
-    saveUserProfiles(profiles);
-    if (state.showRegistrationHint) dismissRegistrationHint();
-  } else {
-    state.registerError = t('register_failed');
-  }
-  render();
-}
-
-// Sucht ein zentral registriertes Profil per 9-stelligem Code und traegt dessen
-// Anzeigenamen in den angegebenen Spieler-Slot (idx) im aktuellen Setup-Bildschirm ein.
-async function submitUserCode(idx) {
-  const input = document.getElementById('user-code-input');
-  if (!input) return;
-  const raw = input.value.replace(/\s/g, '');
-  if (!/^\d{9}$/.test(raw)) {
-    state.codeInputError = t('code_invalid');
-    render();
-    return;
-  }
-  state.codeLookupBusy = true;
-  state.codeInputError = null;
-  render();
-
-  if (typeof window.fbLookupUser !== 'function' || !window.fbConfigured) {
-    state.codeLookupBusy = false;
-    state.codeInputError = t('register_unavailable');
-    render();
-    return;
-  }
-
-  const result = await window.fbLookupUser(raw);
-  state.codeLookupBusy = false;
-  if (result && result.profile) {
-    const p = result.profile;
-    state.playerNames[idx] = p.nickname || `${p.firstName} ${p.lastName}`.trim();
-    state.trainingPlayerCodes[idx] = raw;
-    state.userPickerForIndex = null;
-    state.codePickerOpen = false;
-  } else {
-    state.codeInputError = t('code_not_found');
-  }
-  render();
-}
-
-// Laedt die komplette Cloud-Trainingshistorie eines zentral registrierten Schuetzen per
-// Code und mischt neue Sessions in den lokalen Cache ein (Duplikate werden anhand von
-// Name+Zeitstempel erkannt und uebersprungen). Danach funktionieren die normalen,
-// lokal-basierten Statistik-/Weltkarten-Funktionen wie gewohnt weiter.
-async function loadCloudTrainingHistory(code) {
-  const raw = code.replace(/\s/g, '');
-  if (!/^\d{9}$/.test(raw)) {
-    state.statsLookupError = t('code_invalid');
-    render();
-    return;
-  }
-  if (typeof window.fbFetchTrainingSessions !== 'function' || !window.fbConfigured) {
-    state.statsLookupError = t('register_unavailable');
-    render();
-    return;
-  }
-  state.statsLookupBusy = true;
-  state.statsLookupError = null;
-  render();
-
-  const result = await window.fbFetchTrainingSessions(raw);
-  state.statsLookupBusy = false;
-
-  if (result && result.sessions) {
-    const local = loadTrainingStats();
-    const existingKeys = new Set(local.map(e => e.archerName + '|' + e.timestamp));
-    let importedName = null;
-    result.sessions.forEach(s => {
-      const key = s.archerName + '|' + s.timestamp;
-      if (!existingKeys.has(key)) {
-        local.push(s);
-        existingKeys.add(key);
-        importedName = s.archerName;
-      } else if (!importedName) {
-        importedName = s.archerName;
-      }
-    });
-    saveTrainingStats(local);
-    state.statsCodeLookupOpen = false;
-    if (importedName) {
-      state.trainingStatsArcher = importedName;
-      state.worldMapArcher = importedName;
-    }
-    if (result.sessions.length === 0) {
-      state.statsLookupError = t('no_cloud_sessions');
-    }
-  } else {
-    state.statsLookupError = t('code_not_found');
-  }
-  render();
-}
-
 /* ---------- Lokale Session-Wiederherstellung: mehrere Sessions (max. 48h) ---------- */
 const LOCAL_SESSIONS_KEY = 'archeryArenaSessions_v1';
 const SESSION_MAX_AGE_MS = 48 * 60 * 60 * 1000;
@@ -1355,9 +863,9 @@ const MAX_SAVED_SESSIONS = 12;
 
 function buildSessionLabel() {
   const parts = [];
-  if (state.mode && GAME_LABELS[state.mode]) parts.push(t(GAME_LABELS[state.mode].nameKey));
-  if (state.numPlayers) parts.push(t('players_count_label', state.numPlayers));
-  return parts.join(' · ') || t('new_session_label');
+  if (state.mode && GAME_LABELS[state.mode]) parts.push(GAME_LABELS[state.mode].name);
+  if (state.numPlayers) parts.push(`${state.numPlayers} Spieler`);
+  return parts.join(' · ') || 'Neue Session';
 }
 
 function loadAllLocalSessions() {
@@ -1394,21 +902,19 @@ function removeLocalSession(code) {
 
 function timeAgoLabel(ts) {
   const diffMin = Math.round((Date.now() - ts) / 60000);
-  if (diffMin < 1) return t('just_now_label');
-  if (diffMin < 60) return t('minutes_ago_label', diffMin);
+  if (diffMin < 1) return 'gerade eben';
+  if (diffMin < 60) return `vor ${diffMin} Min.`;
   const diffH = Math.round(diffMin / 60);
-  if (diffH < 24) return t('hours_ago_label', diffH);
+  if (diffH < 24) return `vor ${diffH} Std.`;
   const diffD = Math.round(diffH / 24);
-  return t('days_ago_label', diffD);
+  return `vor ${diffD} Tag${diffD === 1 ? '' : 'en'}`;
 }
 
 function formatDateTime(ts) {
   const d = new Date(ts);
-  const localeMap = { de: 'de-DE', en: 'en-US', fr: 'fr-FR' };
-  const locale = localeMap[state.language] || 'de-DE';
-  const datePart = d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const timePart = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-  return t('date_time_format', datePart, timePart);
+  const datePart = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timePart = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart}, ${timePart} Uhr`;
 }
 
 let sessionOpToken = 0;
@@ -1452,10 +958,10 @@ async function resumeAsHost(code) {
 /* ---------- Statistik ---------- */
 const STATS_KEY = 'archeryArenaStats_v1';
 const GAME_LABELS = {
-  tree: { name: 'Tannenbaum', icon: '🎄', nameKey: 'game_name_tree' },
-  points: { name: 'Punktejagd', icon: '🏹', nameKey: 'game_name_points' },
-  lotto: { name: 'Zahlenlotto', icon: '🎲', nameKey: 'game_name_lotto' },
-  null: { name: 'Nullschuss', icon: '🎯', nameKey: 'game_name_null' },
+  tree: { name: 'Tannenbaum', icon: '🎄' },
+  points: { name: 'Punktejagd', icon: '🏹' },
+  lotto: { name: 'Zahlenlotto', icon: '🎲' },
+  null: { name: 'Nullschuss', icon: '🎯' },
 };
 
 function todayISO() {
@@ -1498,11 +1004,9 @@ function formatStatsDate(dateStr) {
   const y = new Date();
   y.setDate(y.getDate() - 1);
   const yestISO = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
-  if (dateStr === today) return t('today_label');
-  if (dateStr === yestISO) return t('yesterday_label');
-  const localeMap = { de: 'de-DE', en: 'en-US', fr: 'fr-FR' };
-  const locale = localeMap[state.language] || 'de-DE';
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: '2-digit' });
+  if (dateStr === today) return 'Heute';
+  if (dateStr === yestISO) return 'Gestern';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
 }
 
 /* ---------- Global state ---------- */
@@ -1516,7 +1020,6 @@ let state = {
   _receivedAnyData: false,
   prefillJoinCode: null,
   entitlement: 'multi', // 'none' | 'single' | 'multi' - wird ggf. von der iOS-App via URL-Parameter gesetzt
-  language: 'de', // wird direkt nach der Objekt-Definition per loadLanguage() überschrieben
   editingUserId: null,
   userPickerForIndex: null,
 
@@ -1566,39 +1069,7 @@ let state = {
   pointsStatsRecorded: false,
   lottoStatsRecorded: false,
   nullStatsRecorded: false,
-
-  // Leistungsbogen (Training)
-  trainingArrowsPerRound: 3,
-  trainingScores: [],
-  trainingRoundsCount: 1,
-  trainingRound: 0,
-  trainingPicker: null,
-  trainingHistory: [],
-  trainingStatsPeriod: 'day',
-  trainingStatsArcher: null,
-  currentCountry: null,
-  countryPickerOpen: false,
-  worldMapContinent: 'europe',
-  worldMapArcher: null,
-  registerBusy: false,
-  registerError: null,
-  pendingRegistrationUserId: null,
-  hasRegistrationEntitlement: false,
-  photoCapture: null,
-  photoDonateChecked: false,
-  photoDonateBusy: false,
-  photoDonateDone: false,
-  showRegistrationHint: false,
-  codePickerOpen: false,
-  codeInputError: null,
-  codeLookupBusy: false,
-  trainingPlayerCodes: {},
-  statsCodeLookupOpen: false,
-  statsLookupError: null,
-  statsLookupBusy: false,
 };
-state.language = loadLanguage();
-state.currentCountry = loadCurrentCountry();
 
 function isPaused(p) {
   return state.pausedPlayers.includes(p);
@@ -1653,352 +1124,6 @@ function computeTotalsMap(game) {
     map[p] = game === 'points' ? grandTotal(p) : lottoGrandTotal(p);
   }
   return map;
-}
-
-/* ---------- Leistungsbogen (Training) ---------- */
-function makeTrainingScores(numPlayers, numArrows, numRounds) {
-  return Array.from({ length: numPlayers }, () =>
-    Array.from({ length: numRounds }, () => new Array(numArrows).fill(null))
-  );
-}
-function trainingRoundTotal(player, round) {
-  const r = state.trainingScores[player][round];
-  if (!r) return 0;
-  return r.reduce((s, v) => s + (v === null ? 0 : v), 0);
-}
-function trainingGrandTotal(player) {
-  let sum = 0;
-  for (let r = 0; r < state.trainingRoundsCount; r++) sum += trainingRoundTotal(player, r);
-  return sum;
-}
-function trainingArrowsShot(player) {
-  let count = 0;
-  for (let r = 0; r < state.trainingRoundsCount; r++) {
-    count += state.trainingScores[player][r].filter(v => v !== null).length;
-  }
-  return count;
-}
-function trainingRoundComplete(player, round) {
-  return state.trainingScores[player][round].every(v => v !== null);
-}
-
-/* ---------- Schießbuch: Foto-Erfassung ---------- */
-// Bild-Objekt liegt bewusst außerhalb von state (nicht sinnvoll serialisierbar/render-relevant).
-let photoImageObj = null;
-
-function handlePhotoFileSelected(input) {
-  const file = input.files && input.files[0];
-  if (!file || !state.photoCapture) return;
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    const img = new Image();
-    img.onload = function () {
-      photoImageObj = img;
-      const maxDim = 1000;
-      let w = img.naturalWidth, h = img.naturalHeight;
-      if (w > maxDim || h > maxDim) {
-        const scale = maxDim / Math.max(w, h);
-        w = Math.round(w * scale);
-        h = Math.round(h * scale);
-      }
-      state.photoCapture.canvasWidth = w;
-      state.photoCapture.canvasHeight = h;
-      render();
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function drawPhotoMarker(ctx, pos, color, label) {
-  ctx.beginPath();
-  ctx.arc(pos.x, pos.y, 11, 0, 2 * Math.PI);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 12px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(label, pos.x, pos.y);
-}
-
-function drawPhotoCanvas() {
-  const pc = state.photoCapture;
-  const canvas = document.getElementById('photo-canvas');
-  if (!canvas || !photoImageObj || !pc || !pc.canvasWidth) return;
-  canvas.width = pc.canvasWidth;
-  canvas.height = pc.canvasHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(photoImageObj, 0, 0, pc.canvasWidth, pc.canvasHeight);
-
-  if (pc.center && pc.edge) {
-    const r = Math.hypot(pc.edge.x - pc.center.x, pc.edge.y - pc.center.y);
-    ctx.beginPath();
-    ctx.arc(pc.center.x, pc.center.y, r, 0, 2 * Math.PI);
-    ctx.strokeStyle = 'rgba(74,144,217,0.7)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-  if (pc.center) drawPhotoMarker(ctx, pc.center, '#D9A62E', '✛');
-  if (pc.edge) drawPhotoMarker(ctx, pc.edge, '#4A90D9', 'R');
-  pc.taps.forEach((tp, i) => drawPhotoMarker(ctx, tp, '#A93F3F', String(i + 1)));
-}
-
-function setupPhotoCanvasClickListener() {
-  const canvas = document.getElementById('photo-canvas');
-  if (!canvas) return;
-  canvas.onclick = function (evt) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const x = (evt.clientX - rect.left) * scaleX;
-    const y = (evt.clientY - rect.top) * scaleY;
-    handlePhotoCanvasTap(x, y);
-  };
-}
-
-function handlePhotoCanvasTap(x, y) {
-  const pc = state.photoCapture;
-  if (!pc || !pc.canvasWidth) return;
-  if (pc.step === 'center') {
-    pc.center = { x, y };
-    pc.step = 'edge';
-  } else if (pc.step === 'edge') {
-    pc.edge = { x, y };
-    pc.step = 'arrows';
-  } else if (pc.step === 'arrows') {
-    pc.taps.push({ x, y });
-    if (pc.taps.length >= state.trainingArrowsPerRound) {
-      finalizePhotoCapture();
-    }
-  }
-  render();
-}
-
-function finalizePhotoCapture() {
-  const pc = state.photoCapture;
-  const maxRadius = Math.hypot(pc.edge.x - pc.center.x, pc.edge.y - pc.center.y);
-  pc.scores = pc.taps.map(tp =>
-    computeScoreFromDistance(Math.hypot(tp.x - pc.center.x, tp.y - pc.center.y), maxRadius)
-  );
-  pc.tendency = computeTendency(pc.center, pc.taps, maxRadius);
-
-  // Sauberes Bild OHNE Kalibrier-Markierungen fuer eine evtl. Spende separat cachen (auf
-  // einem eigenen, unsichtbaren Canvas gezeichnet - toDataURL() dabei entfernt automatisch
-  // alle EXIF-Metadaten des Originalfotos, z.B. GPS-Standort).
-  if (photoImageObj) {
-    const cleanCanvas = document.createElement('canvas');
-    cleanCanvas.width = pc.canvasWidth;
-    cleanCanvas.height = pc.canvasHeight;
-    cleanCanvas.getContext('2d').drawImage(photoImageObj, 0, 0, pc.canvasWidth, pc.canvasHeight);
-    pc.cleanImageDataUrl = cleanCanvas.toDataURL('image/jpeg', 0.85);
-  }
-
-  pc.step = 'result';
-}
-
-function resetPhotoCalibration() {
-  const pc = state.photoCapture;
-  if (!pc) return;
-  pc.center = null;
-  pc.edge = null;
-  pc.taps = [];
-  pc.scores = null;
-  pc.tendency = null;
-  pc.step = 'center';
-  render();
-}
-
-function applyPhotoScores() {
-  const pc = state.photoCapture;
-  if (!pc || !pc.scores) return;
-  state.trainingScores[pc.player][pc.round] = pc.scores.slice();
-  state.photoCapture = null;
-  state.photoDonateChecked = false;
-  state.photoDonateDone = false;
-  render();
-}
-
-async function submitPhotoDonation() {
-  const pc = state.photoCapture;
-  if (!pc || !pc.cleanImageDataUrl) return;
-  if (typeof window.fbUploadTrainingPhoto !== 'function' || !window.fbConfigured) {
-    state.photoDonateBusy = false;
-    render();
-    return;
-  }
-  state.photoDonateBusy = true;
-  render();
-  const result = await window.fbUploadTrainingPhoto(pc.cleanImageDataUrl, {
-    center: pc.center,
-    edge: pc.edge,
-    taps: pc.taps,
-    arrowsPerRound: state.trainingArrowsPerRound,
-  });
-  state.photoDonateBusy = false;
-  state.photoDonateDone = !!(result && result.ok);
-  render();
-}
-
-function loadTrainingStats() {
-  try {
-    const raw = localStorage.getItem(TRAINING_STATS_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    return Array.isArray(list) ? list : [];
-  } catch (e) {
-    return [];
-  }
-}
-function saveTrainingStats(list) {
-  try { localStorage.setItem(TRAINING_STATS_KEY, JSON.stringify(list)); } catch (e) {}
-}
-
-// Speichert für jeden Schützen mit mindestens einer abgeschlossenen Runde einen
-// Trainings-Datensatz (dauerhaft, keine automatische Löschung - Basis für Tages-,
-// Wochen-, Monats- und Jahresstatistiken). Zentral registrierte Schuetzen (per Code
-// hinzugefuegt) werden zusaetzlich in die Cloud gespiegelt.
-function recordTrainingSession() {
-  const entries = loadTrainingStats();
-  const now = Date.now();
-  const dateISO = todayISO();
-  activePlayerIndices().forEach(p => {
-    const completedRounds = [];
-    for (let r = 0; r < state.trainingRoundsCount; r++) {
-      if (trainingRoundComplete(p, r)) completedRounds.push(state.trainingScores[p][r].slice());
-    }
-    if (completedRounds.length === 0) return;
-    const totalScore = completedRounds.reduce((s, round) => s + round.reduce((a, v) => a + v, 0), 0);
-    const totalArrows = completedRounds.length * state.trainingArrowsPerRound;
-    const sessionRecord = {
-      date: dateISO,
-      timestamp: now,
-      archerName: state.playerNames[p],
-      arrowsPerRound: state.trainingArrowsPerRound,
-      rounds: completedRounds,
-      totalScore,
-      totalArrows,
-      country: state.currentCountry || null,
-    };
-
-    const code = state.trainingPlayerCodes && state.trainingPlayerCodes[p];
-    if (code && typeof window.fbPushTrainingSession === 'function' && window.fbConfigured) {
-      window.fbPushTrainingSession(code, sessionRecord).catch(() => {});
-    }
-
-    entries.push(sessionRecord);
-  });
-  saveTrainingStats(entries);
-}
-
-function pruneOldTrainingStats() {
-  // Trainingsdaten werden bewusst nicht wie die Spiele-Statistik nach 7 Tagen geloescht -
-  // sie sind die Grundlage fuer Jahresuebersichten. Wir begrenzen nur die Gesamtzahl der
-  // Eintraege, damit der lokale Speicher nicht unbegrenzt waechst.
-  const MAX_TRAINING_ENTRIES = 5000;
-  const entries = loadTrainingStats();
-  if (entries.length > MAX_TRAINING_ENTRIES) {
-    saveTrainingStats(entries.slice(entries.length - MAX_TRAINING_ENTRIES));
-  }
-}
-
-function getPeriodRange(period, referenceDate) {
-  const ref = referenceDate ? new Date(referenceDate) : new Date();
-  ref.setHours(0, 0, 0, 0);
-  let start, end;
-  if (period === 'day') {
-    start = new Date(ref);
-    end = new Date(ref);
-    end.setDate(end.getDate() + 1);
-  } else if (period === 'week') {
-    const day = (ref.getDay() + 6) % 7; // Montag = 0
-    start = new Date(ref);
-    start.setDate(start.getDate() - day);
-    end = new Date(start);
-    end.setDate(end.getDate() + 7);
-  } else if (period === 'month') {
-    start = new Date(ref.getFullYear(), ref.getMonth(), 1);
-    end = new Date(ref.getFullYear(), ref.getMonth() + 1, 1);
-  } else {
-    start = new Date(ref.getFullYear(), 0, 1);
-    end = new Date(ref.getFullYear() + 1, 0, 1);
-  }
-  return { start, end };
-}
-
-function previousPeriodReference(period, referenceDate) {
-  const ref = referenceDate ? new Date(referenceDate) : new Date();
-  if (period === 'day') ref.setDate(ref.getDate() - 1);
-  else if (period === 'week') ref.setDate(ref.getDate() - 7);
-  else if (period === 'month') ref.setMonth(ref.getMonth() - 1);
-  else ref.setFullYear(ref.getFullYear() - 1);
-  return ref;
-}
-
-function computeTrainingStatsFor(archerName, period) {
-  const all = loadTrainingStats().filter(e => e.archerName === archerName);
-  const { start, end } = getPeriodRange(period);
-  const inRange = (e) => e.timestamp >= start.getTime() && e.timestamp < end.getTime();
-  const current = all.filter(inRange);
-
-  const prevRef = previousPeriodReference(period);
-  const prevRange = getPeriodRange(period, prevRef);
-  const previous = all.filter(e => e.timestamp >= prevRange.start.getTime() && e.timestamp < prevRange.end.getTime());
-
-  function avgPerArrow(list) {
-    const totalScore = list.reduce((s, e) => s + e.totalScore, 0);
-    const totalArrows = list.reduce((s, e) => s + e.totalArrows, 0);
-    return totalArrows > 0 ? totalScore / totalArrows : null;
-  }
-
-  const bestSessionTotal = current.length ? Math.max(...current.map(e => e.totalScore)) : null;
-  const currentAvg = avgPerArrow(current);
-  const previousAvg = avgPerArrow(previous);
-
-  // Durchschnitt pro Runde, getrennt nach Anzahl Pfeile pro Runde
-  const byArrowCount = {};
-  current.forEach(e => {
-    e.rounds.forEach(round => {
-      const key = e.arrowsPerRound;
-      if (!byArrowCount[key]) byArrowCount[key] = { roundSum: 0, roundCount: 0 };
-      byArrowCount[key].roundSum += round.reduce((a, v) => a + v, 0);
-      byArrowCount[key].roundCount += 1;
-    });
-  });
-  const perArrowCountBreakdown = Object.keys(byArrowCount).sort((a, b) => a - b).map(k => ({
-    arrowsPerRound: parseInt(k, 10),
-    avgPerRound: byArrowCount[k].roundSum / byArrowCount[k].roundCount,
-    avgPerArrow: byArrowCount[k].roundSum / byArrowCount[k].roundCount / parseInt(k, 10),
-    rounds: byArrowCount[k].roundCount,
-  }));
-
-  let trend = 'flat';
-  if (currentAvg !== null && previousAvg !== null) {
-    if (currentAvg > previousAvg + 0.05) trend = 'up';
-    else if (currentAvg < previousAvg - 0.05) trend = 'down';
-  }
-
-  return {
-    sessionCount: current.length,
-    bestSessionTotal,
-    currentAvg,
-    previousAvg,
-    trend,
-    perArrowCountBreakdown,
-  };
-}
-
-function listTrainingArchers() {
-  const all = loadTrainingStats();
-  const names = [...new Set(all.map(e => e.archerName))];
-  return names.sort((a, b) => a.localeCompare(b));
-}
-
-function countriesForArcher(archerName) {
-  const all = loadTrainingStats().filter(e => e.archerName === archerName && e.country);
-  return [...new Set(all.map(e => e.country))];
 }
 
 function maybeStartTiebreak(game) {
@@ -2110,798 +1235,6 @@ function assignRanksForFinal(order, totals, tiebreakTierBoundaries) {
   return ranks;
 }
 
-/* ================= i18n ================= */
-const LANGUAGE_KEY = 'archeryArenaLanguage_v1';
-
-const I18N = {
-  de: {
-    nav_back: '← Zurück',
-    nav_back_other_game: '← Anderes Spiel wählen',
-    nav_back_player_count: '← Spieleranzahl ändern',
-    device_kicker: 'Bogenschießen',
-    device_question: 'Wie wollt ihr spielen?',
-    single_device_title: '📱 Single Device',
-    single_device_desc: 'Alle spielen zusammen an einem Handy oder Tablet – wie bisher.',
-    multi_device_title: '🌐 Multi Device',
-    multi_device_locked_desc: 'Nur mit Multi-Device-Abo verfügbar. Antippen zum Freischalten.',
-    multi_device_desc: 'Ein Gerät führt das Spiel, alle anderen sehen den Stand live mit – über einen gemeinsamen Code.',
-    user_mgmt_title: '👤 Nutzer verwalten',
-    user_mgmt_desc_short: 'Namen einmal anlegen, bei jedem Spiel schnell auswählen.',
-    feedback_link: '✉️ Feedback',
-    lang_label: 'Sprache',
-
-    user_mgmt_sub: 'Einmal anlegen, bei jedem Spiel schnell auswählen',
-    new_user_btn: '+ Neuer Nutzer',
-    no_users_yet: 'Noch keine Nutzer angelegt.',
-    save_btn: 'Speichern',
-    delete_user_btn: 'Nutzer löschen',
-    edit_user_title: 'Nutzer bearbeiten',
-    new_user_title: 'Neuer Nutzer',
-    firstname_label: 'Vorname',
-    lastname_label: 'Nachname',
-    arenaname_label: 'Arena-Name (Anzeigename im Spiel)',
-    arenaname_placeholder: 'z. B. Falkenauge',
-
-    multi_device_heading: 'Multi Device',
-    my_sessions_title: (n) => `📂 Meine Sessions (${n})`,
-    my_sessions_desc: 'Frühere Sessions ansehen und fortsetzen – z. B. wenn eine Gruppe zwischendurch pausiert hat.',
-    new_session_title: '🎯 Neue Session starten',
-    new_session_desc: 'Dieses Gerät steuert das Spiel und bekommt einen Code zum Weitergeben.',
-    join_session_title: '🔑 Session beitreten',
-    join_session_desc: 'Code eingeben und den Spielstand live mitverfolgen (nur Zuschauen).',
-
-    sessions_list_heading: 'Meine Sessions',
-    sessions_list_sub: 'Zuletzt genutzte Sessions auf diesem Gerät (max. 48h gespeichert)',
-    no_sessions_found: 'Keine gespeicherten Sessions gefunden.',
-    code_word: 'Code',
-    loading_suffix: ' · lädt...',
-    session_label_default: 'Session',
-    role_host: '🎯 Host',
-    role_spectator: '👁 Zuschauer',
-    started_label: 'Gestartet:',
-    last_active_label: 'zuletzt aktiv',
-
-    session_code_kicker: 'Session-Code',
-    qr_instruction: 'QR-Code scannen oder Code eintippen – andere Geräte sehen den Spielstand dann live mit.',
-    continue_btn: 'Weiter',
-
-    join_heading: 'Session beitreten',
-    join_sub: 'Code vom Host eingeben',
-    join_error: 'Bitte einen 4-stelligen Code eingeben.',
-    join_btn: 'Beitreten',
-
-    waiting_host: '⏳ Warte auf den Host...',
-    code_prefix: 'Code:',
-    host_not_found: 'Kein Host mit diesem Code gefunden. Code prüfen oder erneut versuchen.',
-
-    device_badge_host: 'Host · Code',
-    device_badge_spectator: 'Zuschauer · Code',
-    leave_btn: 'Verlassen',
-
-    player_count_question: 'Wie viele Spieler / Teams seid ihr?',
-
-    mode_select_kicker: (n) => `Archery Arena · ${n} Spieler`,
-    mode_select_heading: 'Wähle euer Spiel',
-    tree_title: '🎄 Tannenbaum',
-    tree_desc: 'Klassisches Zahlenschießen: Jeder räumt seinen eigenen Tannenbaum ab.',
-    points_title: '🏹 Punktejagd',
-    points_desc: '3 Runden, Pfeilanzahl pro Runde wählbar (3–9). Bei Gleichstand: Stechen.',
-    lotto_title: '🎲 Zahlenlotto',
-    lotto_desc: '<strong>Club</strong>: nur Farbzone treffen. <strong>Hardcore</strong>: exakte Zahl. Pfeilanzahl 3–6 wählbar. Bei Gleichstand: Stechen.',
-    null_title: '🎯 Nullschuss',
-    null_desc: 'Start bei 401, 301 oder 201. Wer als Erstes auf 0 trifft, gewinnt bei Gleichstand mit den wenigsten Pfeilen.',
-    view_stats_btn: '📊 Statistik ansehen',
-
-    setup_player_label: (n) => `Spieler / Team ${n}`,
-    setup_name_placeholder: 'Name eingeben',
-    setup_user_picker_title_attr: 'Aus Nutzerliste wählen',
-    setup_rounds_label: (a, b) => `Anzahl Runden (${a}–${b})`,
-    setup_arrows_per_round_label: (a, b) => `Pfeile pro Runde (${a}–${b})`,
-    setup_game_mode_label: 'Spielmodus',
-    setup_club_label: '🎨 Club',
-    setup_club_sub: 'nur Farbe',
-    setup_hardcore_label: '🎯 Hardcore',
-    setup_hardcore_sub: 'exakte Zahl',
-    setup_rounds_max_label: (max) => `Anzahl Runden (max. ${max})`,
-    setup_start_score_label: 'Startpunktzahl',
-    setup_arrows_per_turn_label: 'Pfeile pro Zug',
-    setup_start_btn: 'Spiel starten',
-
-    picker_choose_player: 'Spieler auswählen',
-    picker_no_users: 'Noch keine gespeicherten Nutzer.',
-    picker_no_users_hint: 'Lege welche im Startmenü unter „👤 Nutzer verwalten" an.',
-    close_btn: 'Schließen',
-
-    ranking_default_title: '🏆 Rangliste',
-
-    game_name_tree: 'Tannenbaum',
-    game_name_points: 'Punktejagd',
-    game_name_lotto: 'Zahlenlotto',
-    game_name_null: 'Nullschuss',
-    switch_game_title_attr: 'Zurück zum Spielmenü',
-    undo_btn: '↺ Undo',
-    reset_btn: '⟲ Reset',
-    in_game_suffix: ' (im Spiel)',
-    paused_suffix: ' · pausiert',
-    round_label: (n) => `Runde ${n}`,
-    round_colon_points: (n, pts) => `Runde ${n}: ${pts} Pkt`,
-    points_suffix_full: (n) => `${n} Punkte`,
-    arrow_pick_title: (n) => `Pfeil ${n} – Punktzahl wählen`,
-    draw_label_result: 'Unentschieden',
-
-    tiebreak_title: '⚡ Stechen',
-    tiebreak_tie_for_first: (names) => `Gleichstand um Platz 1: ${names}`,
-    tiebreak_attempt_points: (a, max) => `Versuch ${a} von ${max} – höchste Zahl gewinnt`,
-    tiebreak_attempt_lotto: (a, max, word) => `Versuch ${a} von ${max} – richtige ${word} gewinnt`,
-    tiebreak_shoots: (name) => `${name} schießt`,
-    spectator_host_only_note: '👁 Zuschauer-Ansicht – Eingabe nur auf dem Host-Gerät',
-    hit_label: '✅ Getroffen',
-    miss_label: '❌ Verfehlt',
-    waiting_label: 'wartet...',
-    hit_btn_label: '✅ Treffer',
-    miss_btn_label: '❌ Verfehlt',
-    color_word: 'Farbe',
-    number_word: 'Zahl',
-    colors_word: 'Farben',
-    numbers_word: 'Zahlen',
-
-    round_of_label: (r, total) => `Runde ${r} von ${total}`,
-    lotto_not_drawn_yet: (isClub, n) => `Noch keine ${isClub ? 'Farben' : 'Zahlen'} ausgelost. Bereit für die ${n} Zielwerte?`,
-    draw_btn: (isClub) => `🎲 ${isClub ? 'Farben' : 'Zahlen'} auslosen`,
-    called_label: (isClub, r) => `Aufgerufene ${isClub ? 'Farben' : 'Zahlen'} – Runde ${r}`,
-    flag_easter_egg: (flag, name) => `💡 Sieht aus wie die Flagge von ${flag} ${name}!`,
-    how_many_hit: (count, isClub) => `Wie viele der ${count} ${isClub ? 'Farben' : 'Zahlen'} getroffen?`,
-    pts_dash: '– Pkt',
-    pts_suffix: (n) => `${n} Pkt`,
-
-    start_score_label: (score) => `Start: ${score} Punkte`,
-    turn_of: (name) => `${name} ist am Zug`,
-    remaining_after_turn: 'Rest nach diesem Zug:',
-    enter_arrow_value: 'Pfeilwert eingeben:',
-    bust_banner: (name) => `💥 Überschossen! Zug von ${name} verfällt.`,
-    arrows_used_suffix: (n) => ` (${n} Pfeile)`,
-
-    stats_period_kicker: 'Letzte 7 Tage',
-    stats_title: '📊 Statistik',
-    games_count_label: (count) => `${count} Spiel${count === 1 ? '' : 'e'}`,
-    no_games_last7: 'Noch keine gespeicherten Spiele in den letzten 7 Tagen.',
-    clear_stats_btn: '🗑 Statistik löschen',
-    players_count_label: (n) => `${n} Spieler`,
-    new_session_label: 'Neue Session',
-    today_label: 'Heute',
-    yesterday_label: 'Gestern',
-    just_now_label: 'gerade eben',
-    minutes_ago_label: (n) => `vor ${n} Min.`,
-    hours_ago_label: (n) => `vor ${n} Std.`,
-    days_ago_label: (n) => `vor ${n} Tag${n === 1 ? '' : 'en'}`,
-    date_time_format: (date, time) => `${date}, ${time} Uhr`,
-
-    training_kicker: 'Schießbuch',
-    training_title: '🏹 Schießbuch',
-    training_desc: 'Eigenes Training dokumentieren – Punkte pro Pfeil erfassen, Entwicklung über Zeit sehen.',
-    view_training_stats_btn: '📈 Trainingsstatistik',
-    training_total_label: (total, arrows) => `Gesamt: ${total} Punkte (${arrows} Pfeile)`,
-    training_avg_label: (avg) => `Ø ${avg} pro Pfeil`,
-    finish_training_btn: 'Training beenden',
-    training_stats_title: 'Trainingsstatistik',
-    no_training_data: 'Noch keine Trainingsdaten vorhanden. Starte im Schießbuch, um deine Entwicklung zu sehen.',
-    registration_hint_title: '☁️ Zentrale Registrierung jetzt kostenlos inklusive',
-    registration_hint_desc: 'Mit deinem Abo kannst du dich (und andere) jetzt ohne Zusatzkosten zentral registrieren – praktisch, wenn ihr an verschiedenen Schießständen unterwegs seid.',
-    registration_hint_btn: 'Jetzt einrichten',
-    registration_hint_dismiss: 'Später',
-    photo_capture_btn: 'Per Foto erfassen',
-    photo_step_choose: 'Foto der Zielscheibe aufnehmen oder auswählen.',
-    photo_step_center: 'Tippe auf die Mitte der Zielscheibe.',
-    photo_step_edge: 'Tippe auf den äußeren Rand der Zielscheibe.',
-    photo_step_arrow: (n, total) => `Tippe auf Trefferpunkt ${n} von ${total}.`,
-    photo_pick_btn: 'Foto aufnehmen / auswählen',
-    photo_reset_btn: '↺ Von vorne beginnen',
-    photo_result_title: '🎯 Erkannte Treffer',
-    photo_tendency_title: 'Tendenz',
-    photo_tendency_disclaimer: 'Grobe Einschätzung, keine exakte Diagnose – nur als Anhaltspunkt gedacht.',
-    tendency_centered: 'Gut zentriert – keine klare Tendenz erkennbar',
-    tendency_top: 'Tendenziell zu hoch',
-    tendency_bottom: 'Tendenziell zu niedrig',
-    tendency_left: 'Tendenziell nach links',
-    tendency_right: 'Tendenziell nach rechts',
-    tendency_top_left: 'Tendenziell oben links',
-    tendency_top_right: 'Tendenziell oben rechts',
-    tendency_bottom_left: 'Tendenziell unten links',
-    tendency_bottom_right: 'Tendenziell unten rechts',
-    photo_donate_text: 'Foto anonym spenden, um die automatische Erkennung künftig zu verbessern? Kein Name, kein Profil, keine Standortdaten werden übertragen.',
-    photo_donate_done: '✓ Danke, Foto wurde anonym gespendet.',
-    photo_donate_btn: 'Anonym spenden',
-    photo_donate_busy: 'Wird gesendet...',
-    photo_apply_btn: 'Übernehmen',
-    photo_redo_btn: 'Nochmal versuchen',
-    no_training_data_period: 'Keine Trainingsdaten in diesem Zeitraum.',
-    archer_label: 'Schütze',
-    period_day: 'Tag',
-    period_week: 'Woche',
-    period_month: 'Monat',
-    period_year: 'Jahr',
-    best_session_label: 'Beste Session',
-    avg_per_arrow_label: 'Ø pro Pfeil',
-    trend_label: 'Tendenz',
-    trend_up: 'Aufwärts',
-    trend_down: 'Abwärts',
-    trend_flat: 'Stabil',
-    trend_comparison: (prev) => `Vorheriger Zeitraum: Ø ${prev}`,
-    avg_by_arrow_count_title: 'Durchschnitt nach Pfeilanzahl',
-    arrows_per_round_label: (n) => `${n} Pfeile pro Runde`,
-    avg_per_round_value: (avgRound, avgArrow) => `Ø ${avgRound} / Runde (${avgArrow} pro Pfeil)`,
-    set_location_btn: 'Standort festlegen',
-    choose_location_title: 'Standort wählen',
-    world_map_title: 'Weltkarte',
-    view_world_map_btn: '🌍 Weltkarte',
-    countries_visited_label: 'Länder geschossen',
-    countries_in_continent_label: (visited, total) => `${visited} von ${total} Ländern in diesem Kontinent`,
-    registered_label: '☁️ Zentral registriert',
-    registered_hint: 'Teile diesen Code, damit andere dich per Code hinzufügen können.',
-    register_section_title: '☁️ Zentral registrieren',
-    register_section_desc: 'Damit dich andere über einen Code zu ihrer Session hinzufügen können, statt dass du jedes Mal lokal angelegt wirst.',
-    register_consent_text: 'Ich bin damit einverstanden, dass Vorname, Nachname und Arena-Name zentral gespeichert werden, damit andere mich per Code finden können. Siehe Datenschutzerklärung.',
-    register_consent_required: 'Bitte zuerst der Datenverarbeitung zustimmen.',
-    register_unavailable: 'Zentrale Registrierung gerade nicht verfügbar. Später erneut versuchen.',
-    register_failed: 'Registrierung fehlgeschlagen. Bitte erneut versuchen.',
-    registering_label: 'Wird registriert...',
-    register_btn: 'Registrieren',
-    register_btn_paid: 'Registrierung freischalten',
-    registration_free_with_plan: '✓ Mit deinem aktiven Abo kostenlos enthalten',
-    registration_fee_notice: 'Ohne aktives Single- oder Multi-Device-Abo kostet die zentrale Registrierung 0,99 € pro Jahr und Profil.',
-    registration_payment_failed: 'Abo wurde nicht abgeschlossen. Registrierung wurde nicht durchgeführt.',
-    code_picker_show: '🔑 Per Code hinzufügen',
-    code_picker_hide: '🔑 Code-Eingabe ausblenden',
-    code_lookup_busy: 'Wird gesucht...',
-    code_lookup_btn: 'Hinzufügen',
-    code_invalid: 'Bitte einen 9-stelligen Code eingeben.',
-    code_not_found: 'Kein Nutzer mit diesem Code gefunden.',
-    load_by_code_btn: '🔑 Historie per Code laden',
-    load_btn: 'Laden',
-    no_cloud_sessions: 'Für diesen Code sind noch keine Trainings-Sessions in der Cloud gespeichert.',
-  },
-  en: {
-    nav_back: '← Back',
-    nav_back_other_game: '← Choose another game',
-    nav_back_player_count: '← Change number of players',
-    device_kicker: 'Archery',
-    device_question: 'How do you want to play?',
-    single_device_title: '📱 Single Device',
-    single_device_desc: 'Everyone plays together on one phone or tablet – as usual.',
-    multi_device_title: '🌐 Multi Device',
-    multi_device_locked_desc: 'Only available with a Multi Device subscription. Tap to unlock.',
-    multi_device_desc: 'One device runs the game, everyone else sees the live score – via a shared code.',
-    user_mgmt_title: '👤 Manage Users',
-    user_mgmt_desc_short: 'Set up names once, pick them quickly for every game.',
-    feedback_link: '✉️ Feedback',
-    lang_label: 'Language',
-
-    user_mgmt_sub: 'Set up once, pick quickly for every game',
-    new_user_btn: '+ New User',
-    no_users_yet: 'No users created yet.',
-    save_btn: 'Save',
-    delete_user_btn: 'Delete user',
-    edit_user_title: 'Edit user',
-    new_user_title: 'New user',
-    firstname_label: 'First name',
-    lastname_label: 'Last name',
-    arenaname_label: 'Arena Name (display name in-game)',
-    arenaname_placeholder: 'e.g. Hawkeye',
-
-    multi_device_heading: 'Multi Device',
-    my_sessions_title: (n) => `📂 My Sessions (${n})`,
-    my_sessions_desc: 'View and resume previous sessions – e.g. if a group paused partway through.',
-    new_session_title: '🎯 Start new session',
-    new_session_desc: 'This device runs the game and gets a code to share.',
-    join_session_title: '🔑 Join session',
-    join_session_desc: 'Enter a code and follow the score live (view only).',
-
-    sessions_list_heading: 'My Sessions',
-    sessions_list_sub: 'Recently used sessions on this device (stored for up to 48h)',
-    no_sessions_found: 'No saved sessions found.',
-    code_word: 'Code',
-    loading_suffix: ' · loading...',
-    session_label_default: 'Session',
-    role_host: '🎯 Host',
-    role_spectator: '👁 Spectator',
-    started_label: 'Started:',
-    last_active_label: 'last active',
-
-    session_code_kicker: 'Session Code',
-    qr_instruction: 'Scan the QR code or enter the code – other devices will see the live score.',
-    continue_btn: 'Continue',
-
-    join_heading: 'Join session',
-    join_sub: "Enter the host's code",
-    join_error: 'Please enter a 4-digit code.',
-    join_btn: 'Join',
-
-    waiting_host: '⏳ Waiting for the host...',
-    code_prefix: 'Code:',
-    host_not_found: 'No host found with this code. Check the code or try again.',
-
-    device_badge_host: 'Host · Code',
-    device_badge_spectator: 'Spectator · Code',
-    leave_btn: 'Leave',
-
-    player_count_question: 'How many players / teams are you?',
-
-    mode_select_kicker: (n) => `Archery Arena · ${n} players`,
-    mode_select_heading: 'Choose your game',
-    tree_title: '🎄 Christmas Tree',
-    tree_desc: 'Classic number shooting: everyone clears their own Christmas tree.',
-    points_title: '🏹 Point Hunt',
-    points_desc: '3 rounds, arrows per round selectable (3–9). Tie: shoot-off.',
-    lotto_title: '🎲 Number Lotto',
-    lotto_desc: '<strong>Club</strong>: hit the color zone only. <strong>Hardcore</strong>: exact number. Arrows per round 3–6. Tie: shoot-off.',
-    null_title: '🎯 Down to Zero',
-    null_desc: 'Start at 401, 301 or 201. First to hit exactly 0 wins; ties are broken by fewest arrows used.',
-    view_stats_btn: '📊 View statistics',
-
-    setup_player_label: (n) => `Player / Team ${n}`,
-    setup_name_placeholder: 'Enter name',
-    setup_user_picker_title_attr: 'Choose from user list',
-    setup_rounds_label: (a, b) => `Number of rounds (${a}–${b})`,
-    setup_arrows_per_round_label: (a, b) => `Arrows per round (${a}–${b})`,
-    setup_game_mode_label: 'Game mode',
-    setup_club_label: '🎨 Club',
-    setup_club_sub: 'color only',
-    setup_hardcore_label: '🎯 Hardcore',
-    setup_hardcore_sub: 'exact number',
-    setup_rounds_max_label: (max) => `Number of rounds (max. ${max})`,
-    setup_start_score_label: 'Starting score',
-    setup_arrows_per_turn_label: 'Arrows per turn',
-    setup_start_btn: 'Start game',
-
-    picker_choose_player: 'Choose player',
-    picker_no_users: 'No saved users yet.',
-    picker_no_users_hint: 'Create some in the start menu under "👤 Manage Users".',
-    close_btn: 'Close',
-
-    ranking_default_title: '🏆 Leaderboard',
-
-    game_name_tree: 'Christmas Tree',
-    game_name_points: 'Point Hunt',
-    game_name_lotto: 'Number Lotto',
-    game_name_null: 'Down to Zero',
-    switch_game_title_attr: 'Back to game menu',
-    undo_btn: '↺ Undo',
-    reset_btn: '⟲ Reset',
-    in_game_suffix: ' (playing)',
-    paused_suffix: ' · paused',
-    round_label: (n) => `Round ${n}`,
-    round_colon_points: (n, pts) => `Round ${n}: ${pts} pts`,
-    points_suffix_full: (n) => `${n} points`,
-    arrow_pick_title: (n) => `Arrow ${n} – choose score`,
-    draw_label_result: 'Tie',
-
-    tiebreak_title: '⚡ Shoot-off',
-    tiebreak_tie_for_first: (names) => `Tied for 1st place: ${names}`,
-    tiebreak_attempt_points: (a, max) => `Attempt ${a} of ${max} – highest number wins`,
-    tiebreak_attempt_lotto: (a, max, word) => `Attempt ${a} of ${max} – correct ${word} wins`,
-    tiebreak_shoots: (name) => `${name} is shooting`,
-    spectator_host_only_note: '👁 Spectator view – input only on the host device',
-    hit_label: '✅ Hit',
-    miss_label: '❌ Missed',
-    waiting_label: 'waiting...',
-    hit_btn_label: '✅ Hit',
-    miss_btn_label: '❌ Missed',
-    color_word: 'color',
-    number_word: 'number',
-    colors_word: 'colors',
-    numbers_word: 'numbers',
-
-    round_of_label: (r, total) => `Round ${r} of ${total}`,
-    lotto_not_drawn_yet: (isClub, n) => `No ${isClub ? 'colors' : 'numbers'} drawn yet. Ready for the ${n} target values?`,
-    draw_btn: (isClub) => `🎲 Draw ${isClub ? 'colors' : 'numbers'}`,
-    called_label: (isClub, r) => `Called ${isClub ? 'colors' : 'numbers'} – Round ${r}`,
-    flag_easter_egg: (flag, name) => `💡 Looks like the flag of ${flag} ${name}!`,
-    how_many_hit: (count, isClub) => `How many of the ${count} ${isClub ? 'colors' : 'numbers'} hit?`,
-    pts_dash: '– pts',
-    pts_suffix: (n) => `${n} pts`,
-
-    start_score_label: (score) => `Start: ${score} points`,
-    turn_of: (name) => `${name}'s turn`,
-    remaining_after_turn: 'Remaining after this turn:',
-    enter_arrow_value: 'Enter arrow value:',
-    bust_banner: (name) => `💥 Bust! ${name}'s turn is void.`,
-    arrows_used_suffix: (n) => ` (${n} arrows)`,
-
-    stats_period_kicker: 'Last 7 days',
-    stats_title: '📊 Statistics',
-    games_count_label: (count) => `${count} game${count === 1 ? '' : 's'}`,
-    no_games_last7: 'No games saved in the last 7 days yet.',
-    clear_stats_btn: '🗑 Clear statistics',
-    players_count_label: (n) => `${n} players`,
-    new_session_label: 'New session',
-    today_label: 'Today',
-    yesterday_label: 'Yesterday',
-    just_now_label: 'just now',
-    minutes_ago_label: (n) => `${n} min ago`,
-    hours_ago_label: (n) => `${n} h ago`,
-    days_ago_label: (n) => `${n} day${n === 1 ? '' : 's'} ago`,
-    date_time_format: (date, time) => `${date}, ${time}`,
-
-    training_kicker: 'Shooting Log',
-    training_title: '🏹 Shooting Log',
-    training_desc: 'Track your own training – log points per arrow and see your progress over time.',
-    view_training_stats_btn: '📈 Training Stats',
-    training_total_label: (total, arrows) => `Total: ${total} points (${arrows} arrows)`,
-    training_avg_label: (avg) => `Avg ${avg} per arrow`,
-    finish_training_btn: 'Finish training',
-    training_stats_title: 'Training Statistics',
-    no_training_data: 'No training data yet. Start in your Shooting Log to see your progress.',
-    registration_hint_title: '☁️ Central registration now included free',
-    registration_hint_desc: 'With your plan, you can now register yourself (and others) centrally at no extra cost – handy if you shoot at different ranges.',
-    registration_hint_btn: 'Set up now',
-    registration_hint_dismiss: 'Later',
-    photo_capture_btn: 'Capture by photo',
-    photo_step_choose: 'Take or choose a photo of the target.',
-    photo_step_center: 'Tap the center of the target.',
-    photo_step_edge: 'Tap the outer edge of the target.',
-    photo_step_arrow: (n, total) => `Tap hit point ${n} of ${total}.`,
-    photo_pick_btn: 'Take / choose photo',
-    photo_reset_btn: '↺ Start over',
-    photo_result_title: '🎯 Detected hits',
-    photo_tendency_title: 'Tendency',
-    photo_tendency_disclaimer: 'Rough estimate, not an exact diagnosis – just a pointer.',
-    tendency_centered: 'Well centered – no clear tendency',
-    tendency_top: 'Tends too high',
-    tendency_bottom: 'Tends too low',
-    tendency_left: 'Tends to the left',
-    tendency_right: 'Tends to the right',
-    tendency_top_left: 'Tends top-left',
-    tendency_top_right: 'Tends top-right',
-    tendency_bottom_left: 'Tends bottom-left',
-    tendency_bottom_right: 'Tends bottom-right',
-    photo_donate_text: 'Donate this photo anonymously to help improve automatic detection in the future? No name, profile, or location data is transmitted.',
-    photo_donate_done: '✓ Thanks, photo donated anonymously.',
-    photo_donate_btn: 'Donate anonymously',
-    photo_donate_busy: 'Sending...',
-    photo_apply_btn: 'Apply',
-    photo_redo_btn: 'Try again',
-    no_training_data_period: 'No training data in this period.',
-    archer_label: 'Archer',
-    period_day: 'Day',
-    period_week: 'Week',
-    period_month: 'Month',
-    period_year: 'Year',
-    best_session_label: 'Best session',
-    avg_per_arrow_label: 'Avg per arrow',
-    trend_label: 'Trend',
-    trend_up: 'Improving',
-    trend_down: 'Declining',
-    trend_flat: 'Stable',
-    trend_comparison: (prev) => `Previous period: avg ${prev}`,
-    avg_by_arrow_count_title: 'Average by arrow count',
-    arrows_per_round_label: (n) => `${n} arrows per round`,
-    avg_per_round_value: (avgRound, avgArrow) => `Avg ${avgRound} / round (${avgArrow} per arrow)`,
-    set_location_btn: 'Set location',
-    choose_location_title: 'Choose location',
-    world_map_title: 'World Map',
-    view_world_map_btn: '🌍 World Map',
-    countries_visited_label: 'Countries shot in',
-    countries_in_continent_label: (visited, total) => `${visited} of ${total} countries in this continent`,
-    registered_label: '☁️ Registered centrally',
-    registered_hint: 'Share this code so others can add you by code.',
-    register_section_title: '☁️ Register centrally',
-    register_section_desc: 'So others can add you to their session via a code, instead of creating you locally each time.',
-    register_consent_text: 'I agree that my first name, last name, and Arena Name are stored centrally so others can find me by code. See privacy policy.',
-    register_consent_required: 'Please agree to data processing first.',
-    register_unavailable: 'Central registration is not available right now. Please try again later.',
-    register_failed: 'Registration failed. Please try again.',
-    registering_label: 'Registering...',
-    register_btn: 'Register',
-    register_btn_paid: 'Unlock registration',
-    registration_free_with_plan: '✓ Included free with your active plan',
-    registration_fee_notice: 'Without an active Single or Multi Device plan, central registration costs €0.99 per year and profile.',
-    registration_payment_failed: 'Subscription was not completed. Registration was not carried out.',
-    code_picker_show: '🔑 Add via code',
-    code_picker_hide: '🔑 Hide code entry',
-    code_lookup_busy: 'Searching...',
-    code_lookup_btn: 'Add',
-    code_invalid: 'Please enter a 9-digit code.',
-    code_not_found: 'No user found with this code.',
-    load_by_code_btn: '🔑 Load history by code',
-    load_btn: 'Load',
-    no_cloud_sessions: 'No training sessions stored in the cloud for this code yet.',
-  },
-  fr: {
-    nav_back: '← Retour',
-    nav_back_other_game: '← Choisir un autre jeu',
-    nav_back_player_count: '← Modifier le nombre de joueurs',
-    device_kicker: 'Tir à l\'arc',
-    device_question: 'Comment voulez-vous jouer ?',
-    single_device_title: '📱 Un seul appareil',
-    single_device_desc: 'Tout le monde joue ensemble sur un téléphone ou une tablette – comme avant.',
-    multi_device_title: '🌐 Plusieurs appareils',
-    multi_device_locked_desc: 'Disponible uniquement avec l\'abonnement Multi Device. Appuyez pour débloquer.',
-    multi_device_desc: 'Un appareil dirige la partie, tous les autres suivent le score en direct – via un code commun.',
-    user_mgmt_title: '👤 Gérer les utilisateurs',
-    user_mgmt_desc_short: 'Créez les noms une fois, sélectionnez-les rapidement à chaque partie.',
-    feedback_link: '✉️ Retour',
-    lang_label: 'Langue',
-
-    user_mgmt_sub: 'Créez une fois, sélectionnez rapidement à chaque partie',
-    new_user_btn: '+ Nouvel utilisateur',
-    no_users_yet: 'Aucun utilisateur créé pour le moment.',
-    save_btn: 'Enregistrer',
-    delete_user_btn: "Supprimer l'utilisateur",
-    edit_user_title: "Modifier l'utilisateur",
-    new_user_title: 'Nouvel utilisateur',
-    firstname_label: 'Prénom',
-    lastname_label: 'Nom',
-    arenaname_label: "Nom d'arène (nom affiché en jeu)",
-    arenaname_placeholder: 'p. ex. Œil-de-Faucon',
-
-    multi_device_heading: 'Plusieurs appareils',
-    my_sessions_title: (n) => `📂 Mes sessions (${n})`,
-    my_sessions_desc: 'Consultez et reprenez des sessions précédentes – par ex. si un groupe a fait une pause.',
-    new_session_title: '🎯 Démarrer une nouvelle session',
-    new_session_desc: 'Cet appareil dirige la partie et reçoit un code à partager.',
-    join_session_title: '🔑 Rejoindre une session',
-    join_session_desc: 'Entrez un code et suivez le score en direct (spectateur uniquement).',
-
-    sessions_list_heading: 'Mes sessions',
-    sessions_list_sub: 'Sessions récemment utilisées sur cet appareil (conservées 48h max.)',
-    no_sessions_found: 'Aucune session enregistrée trouvée.',
-    code_word: 'Code',
-    loading_suffix: ' · chargement...',
-    session_label_default: 'Session',
-    role_host: '🎯 Hôte',
-    role_spectator: '👁 Spectateur',
-    started_label: 'Démarrée :',
-    last_active_label: 'dernière activité',
-
-    session_code_kicker: 'Code de session',
-    qr_instruction: 'Scannez le QR code ou saisissez le code – les autres appareils suivront le score en direct.',
-    continue_btn: 'Continuer',
-
-    join_heading: 'Rejoindre une session',
-    join_sub: "Entrez le code de l'hôte",
-    join_error: 'Veuillez saisir un code à 4 chiffres.',
-    join_btn: 'Rejoindre',
-
-    waiting_host: "⏳ En attente de l'hôte...",
-    code_prefix: 'Code :',
-    host_not_found: 'Aucun hôte trouvé avec ce code. Vérifiez le code ou réessayez.',
-
-    device_badge_host: 'Hôte · Code',
-    device_badge_spectator: 'Spectateur · Code',
-    leave_btn: 'Quitter',
-
-    player_count_question: 'Combien de joueurs / équipes êtes-vous ?',
-
-    mode_select_kicker: (n) => `Archery Arena · ${n} joueurs`,
-    mode_select_heading: 'Choisissez votre jeu',
-    tree_title: '🎄 Sapin de Noël',
-    tree_desc: 'Tir aux chiffres classique : chacun vide son propre sapin.',
-    points_title: '🏹 Chasse aux points',
-    points_desc: '3 manches, nombre de flèches par manche au choix (3–9). Égalité : tir de barrage.',
-    lotto_title: '🎲 Loto des chiffres',
-    lotto_desc: '<strong>Club</strong> : toucher uniquement la zone de couleur. <strong>Hardcore</strong> : chiffre exact. 3 à 6 flèches par manche. Égalité : tir de barrage.',
-    null_title: '🎯 Retour à zéro',
-    null_desc: 'Départ à 401, 301 ou 201. Le premier à atteindre exactement 0 gagne ; égalité départagée par le moins de flèches utilisées.',
-    view_stats_btn: '📊 Voir les statistiques',
-
-    setup_player_label: (n) => `Joueur / Équipe ${n}`,
-    setup_name_placeholder: 'Entrer le nom',
-    setup_user_picker_title_attr: 'Choisir dans la liste des utilisateurs',
-    setup_rounds_label: (a, b) => `Nombre de manches (${a}–${b})`,
-    setup_arrows_per_round_label: (a, b) => `Flèches par manche (${a}–${b})`,
-    setup_game_mode_label: 'Mode de jeu',
-    setup_club_label: '🎨 Club',
-    setup_club_sub: 'couleur seulement',
-    setup_hardcore_label: '🎯 Hardcore',
-    setup_hardcore_sub: 'chiffre exact',
-    setup_rounds_max_label: (max) => `Nombre de manches (max. ${max})`,
-    setup_start_score_label: 'Score de départ',
-    setup_arrows_per_turn_label: 'Flèches par tour',
-    setup_start_btn: 'Démarrer la partie',
-
-    picker_choose_player: 'Choisir un joueur',
-    picker_no_users: 'Aucun utilisateur enregistré pour le moment.',
-    picker_no_users_hint: 'Créez-en dans le menu principal sous « 👤 Gérer les utilisateurs ».',
-    close_btn: 'Fermer',
-
-    ranking_default_title: '🏆 Classement',
-
-    game_name_tree: 'Sapin de Noël',
-    game_name_points: 'Chasse aux points',
-    game_name_lotto: 'Loto des chiffres',
-    game_name_null: 'Retour à zéro',
-    switch_game_title_attr: 'Retour au menu du jeu',
-    undo_btn: '↺ Annuler',
-    reset_btn: '⟲ Réinitialiser',
-    in_game_suffix: ' (en jeu)',
-    paused_suffix: ' · en pause',
-    round_label: (n) => `Manche ${n}`,
-    round_colon_points: (n, pts) => `Manche ${n} : ${pts} pts`,
-    points_suffix_full: (n) => `${n} points`,
-    arrow_pick_title: (n) => `Flèche ${n} – choisir le score`,
-    draw_label_result: 'Égalité',
-
-    tiebreak_title: '⚡ Tir de barrage',
-    tiebreak_tie_for_first: (names) => `Égalité pour la 1ère place : ${names}`,
-    tiebreak_attempt_points: (a, max) => `Essai ${a} sur ${max} – le chiffre le plus élevé gagne`,
-    tiebreak_attempt_lotto: (a, max, word) => `Essai ${a} sur ${max} – ${word} correct gagne`,
-    tiebreak_shoots: (name) => `${name} tire`,
-    spectator_host_only_note: "👁 Vue spectateur – saisie uniquement sur l'appareil hôte",
-    hit_label: '✅ Touché',
-    miss_label: '❌ Manqué',
-    waiting_label: 'en attente...',
-    hit_btn_label: '✅ Touché',
-    miss_btn_label: '❌ Manqué',
-    color_word: 'la couleur',
-    number_word: 'le chiffre',
-    colors_word: 'couleurs',
-    numbers_word: 'chiffres',
-
-    round_of_label: (r, total) => `Manche ${r} sur ${total}`,
-    lotto_not_drawn_yet: (isClub, n) => isClub ? `Aucune couleur tirée pour l'instant. Prêt pour les ${n} valeurs cibles ?` : `Aucun chiffre tiré pour l'instant. Prêt pour les ${n} valeurs cibles ?`,
-    draw_btn: (isClub) => `🎲 Tirer les ${isClub ? 'couleurs' : 'chiffres'}`,
-    called_label: (isClub, r) => `${isClub ? 'Couleurs tirées' : 'Chiffres tirés'} – Manche ${r}`,
-    flag_easter_egg: (flag, name) => `💡 On dirait le drapeau de ${flag} ${name} !`,
-    how_many_hit: (count, isClub) => `Combien des ${count} ${isClub ? 'couleurs' : 'chiffres'} touché(e)s ?`,
-    pts_dash: '– pts',
-    pts_suffix: (n) => `${n} pts`,
-
-    start_score_label: (score) => `Départ : ${score} points`,
-    turn_of: (name) => `Au tour de ${name}`,
-    remaining_after_turn: 'Restant après ce tour :',
-    enter_arrow_value: 'Entrer la valeur de la flèche :',
-    bust_banner: (name) => `💥 Dépassement ! Le tour de ${name} est annulé.`,
-    arrows_used_suffix: (n) => ` (${n} flèches)`,
-
-    stats_period_kicker: 'Les 7 derniers jours',
-    stats_title: '📊 Statistiques',
-    games_count_label: (count) => `${count} partie${count === 1 ? '' : 's'}`,
-    no_games_last7: 'Aucune partie enregistrée ces 7 derniers jours.',
-    clear_stats_btn: '🗑 Effacer les statistiques',
-    players_count_label: (n) => `${n} joueurs`,
-    new_session_label: 'Nouvelle session',
-    today_label: "Aujourd'hui",
-    yesterday_label: 'Hier',
-    just_now_label: "à l'instant",
-    minutes_ago_label: (n) => `il y a ${n} min`,
-    hours_ago_label: (n) => `il y a ${n} h`,
-    days_ago_label: (n) => `il y a ${n} jour${n === 1 ? '' : 's'}`,
-    date_time_format: (date, time) => `${date}, ${time}`,
-
-    training_kicker: "Carnet de tir",
-    training_title: "🏹 Carnet de tir",
-    training_desc: "Documente ton propre entraînement – enregistre les points par flèche et suis ta progression.",
-    view_training_stats_btn: "📈 Statistiques d'entraînement",
-    training_total_label: (total, arrows) => `Total : ${total} points (${arrows} flèches)`,
-    training_avg_label: (avg) => `Moy. ${avg} par flèche`,
-    finish_training_btn: "Terminer l'entraînement",
-    training_stats_title: "Statistiques d'entraînement",
-    no_training_data: "Encore aucune donnée d'entraînement. Démarre dans ton carnet de tir pour voir ta progression.",
-    registration_hint_title: "☁️ Enregistrement central maintenant inclus gratuitement",
-    registration_hint_desc: "Avec ton abonnement, tu peux maintenant t'enregistrer (toi et d'autres) de manière centrale sans frais supplémentaires – pratique si vous tirez sur différents pas de tir.",
-    registration_hint_btn: 'Configurer maintenant',
-    registration_hint_dismiss: 'Plus tard',
-    photo_capture_btn: 'Saisir par photo',
-    photo_step_choose: 'Prends ou choisis une photo de la cible.',
-    photo_step_center: 'Touche le centre de la cible.',
-    photo_step_edge: 'Touche le bord extérieur de la cible.',
-    photo_step_arrow: (n, total) => `Touche le point d'impact ${n} sur ${total}.`,
-    photo_pick_btn: 'Prendre / choisir une photo',
-    photo_reset_btn: '↺ Recommencer',
-    photo_result_title: '🎯 Impacts détectés',
-    photo_tendency_title: 'Tendance',
-    photo_tendency_disclaimer: "Estimation approximative, pas un diagnostic exact – juste un repère.",
-    tendency_centered: 'Bien centré – aucune tendance claire',
-    tendency_top: 'Tendance trop haute',
-    tendency_bottom: 'Tendance trop basse',
-    tendency_left: 'Tendance vers la gauche',
-    tendency_right: 'Tendance vers la droite',
-    tendency_top_left: 'Tendance en haut à gauche',
-    tendency_top_right: 'Tendance en haut à droite',
-    tendency_bottom_left: 'Tendance en bas à gauche',
-    tendency_bottom_right: 'Tendance en bas à droite',
-    photo_donate_text: "Faire don de cette photo de manière anonyme pour améliorer la détection automatique ? Aucun nom, profil ou donnée de localisation n'est transmis.",
-    photo_donate_done: '✓ Merci, photo donnée anonymement.',
-    photo_donate_btn: 'Faire un don anonyme',
-    photo_donate_busy: 'Envoi...',
-    photo_apply_btn: 'Valider',
-    photo_redo_btn: 'Réessayer',
-    no_training_data_period: 'Aucune donnée pour cette période.',
-    archer_label: 'Archer(ère)',
-    period_day: 'Jour',
-    period_week: 'Semaine',
-    period_month: 'Mois',
-    period_year: 'Année',
-    best_session_label: 'Meilleure session',
-    avg_per_arrow_label: 'Moy. par flèche',
-    trend_label: 'Tendance',
-    trend_up: 'En hausse',
-    trend_down: 'En baisse',
-    trend_flat: 'Stable',
-    trend_comparison: (prev) => `Période précédente : moy. ${prev}`,
-    avg_by_arrow_count_title: 'Moyenne par nombre de flèches',
-    arrows_per_round_label: (n) => `${n} flèches par manche`,
-    avg_per_round_value: (avgRound, avgArrow) => `Moy. ${avgRound} / manche (${avgArrow} par flèche)`,
-    set_location_btn: 'Définir le lieu',
-    choose_location_title: 'Choisir le lieu',
-    world_map_title: 'Carte du monde',
-    view_world_map_btn: '🌍 Carte du monde',
-    countries_visited_label: 'Pays où tu as tiré',
-    countries_in_continent_label: (visited, total) => `${visited} sur ${total} pays sur ce continent`,
-    registered_label: '☁️ Enregistré(e) centralement',
-    registered_hint: 'Partage ce code pour que d\'autres puissent t\'ajouter via ce code.',
-    register_section_title: '☁️ Enregistrement central',
-    register_section_desc: 'Pour que d\'autres puissent t\'ajouter à leur session via un code, au lieu de te créer localement à chaque fois.',
-    register_consent_text: "J'accepte que mon prénom, nom et nom d'arène soient stockés de manière centralisée afin que d'autres puissent me retrouver via un code. Voir la politique de confidentialité.",
-    register_consent_required: "Merci d'accepter d'abord le traitement des données.",
-    register_unavailable: "L'enregistrement central n'est pas disponible pour le moment. Réessaie plus tard.",
-    register_failed: "L'enregistrement a échoué. Réessaie.",
-    registering_label: 'Enregistrement...',
-    register_btn: 'Enregistrer',
-    register_btn_paid: "Débloquer l'enregistrement",
-    registration_free_with_plan: '✓ Inclus gratuitement avec ton abonnement actif',
-    registration_fee_notice: "Sans abonnement Single ou Multi Device actif, l'enregistrement central coûte 0,99 € par an et par profil.",
-    registration_payment_failed: "L'abonnement n'a pas été finalisé. L'enregistrement n'a pas été effectué.",
-    code_picker_show: '🔑 Ajouter via un code',
-    code_picker_hide: '🔑 Masquer la saisie du code',
-    code_lookup_busy: 'Recherche...',
-    code_lookup_btn: 'Ajouter',
-    code_invalid: 'Merci de saisir un code à 9 chiffres.',
-    code_not_found: 'Aucun utilisateur trouvé avec ce code.',
-    load_by_code_btn: "🔑 Charger l'historique via un code",
-    load_btn: 'Charger',
-    no_cloud_sessions: "Aucune session d'entraînement enregistrée dans le cloud pour ce code pour l'instant.",
-  },
-};
-
-function t(key, ...args) {
-  const dict = I18N[state.language] || I18N.de;
-  const entry = (key in dict) ? dict[key] : I18N.de[key];
-  if (typeof entry === 'function') return entry(...args);
-  return entry !== undefined ? entry : key;
-}
-
-function loadLanguage() {
-  try {
-    const saved = localStorage.getItem(LANGUAGE_KEY);
-    if (saved === 'de' || saved === 'en' || saved === 'fr') return saved;
-  } catch (e) {}
-  try {
-    const nav = (navigator.language || 'de').slice(0, 2).toLowerCase();
-    if (nav === 'en' || nav === 'fr') return nav;
-  } catch (e) {}
-  return 'de';
-}
-
-function setLanguage(lang) {
-  if (lang !== 'de' && lang !== 'en' && lang !== 'fr') return;
-  state.language = lang;
-  try { localStorage.setItem(LANGUAGE_KEY, lang); } catch (e) {}
-  document.documentElement.setAttribute('lang', lang);
-  render();
-}
-
-function renderLanguageSwitcher() {
-  const langs = [
-    { code: 'de', label: 'DE' },
-    { code: 'en', label: 'EN' },
-    { code: 'fr', label: 'FR' },
-  ];
-  return `
-    <div class="flex items-center justify-center gap-2 mb-6">
-      ${langs.map(l => `
-        <button data-action="set-language" data-lang="${l.code}"
-          class="h-9 px-4 rounded-full border-2 font-display text-xs tracking-wide transition-colors
-            ${state.language === l.code ? 'bg-pine border-pine text-parchment' : 'bg-white border-parchment2 text-ink/50'}">
-          ${l.label}
-        </button>
-      `).join('')}
-    </div>
-  `;
-}
-
-/* ================= /i18n ================= */
-
 function render() {
   const app = document.getElementById('app');
   let inner;
@@ -2921,18 +1254,9 @@ function render() {
   else if (state.screen === 'game-lotto') inner = renderLottoGame();
   else if (state.screen === 'game-null') inner = renderNullGame();
   else if (state.screen === 'stats') inner = renderStats();
-  else if (state.screen === 'training-setup') inner = renderTrainingSetup();
-  else if (state.screen === 'game-training') inner = renderTrainingGame();
-  else if (state.screen === 'training-stats') inner = renderTrainingStats();
-  else if (state.screen === 'world-map') inner = renderWorldMap();
   else inner = '';
 
-  app.innerHTML = (state.deviceMode === 'multi' && state.sessionCode ? renderDeviceBadge() : '') + inner + renderPhotoCaptureOverlay();
-
-  if (state.photoCapture) {
-    drawPhotoCanvas();
-    setupPhotoCanvasClickListener();
-  }
+  app.innerHTML = (state.deviceMode === 'multi' && state.sessionCode ? renderDeviceBadge() : '') + inner;
 
   if (state.deviceMode === 'multi' && state.isHost && state.sessionCode && typeof window.fbPushState === 'function') {
     try {
@@ -2945,57 +1269,32 @@ function render() {
 }
 
 /* ---------- Device mode / Multi-Device screens ---------- */
-function renderRegistrationHintBanner() {
-  if (!state.showRegistrationHint) return '';
-  return `
-    <div class="bg-gold/10 border-2 border-gold rounded-2xl p-4 mb-4 flex items-start gap-3">
-      <span class="text-2xl">☁️</span>
-      <div class="flex-1">
-        <p class="text-sm font-medium text-pinedark mb-1">${t('registration_hint_title')}</p>
-        <p class="text-xs text-ink/60 mb-3">${t('registration_hint_desc')}</p>
-        <div class="flex gap-2">
-          <button data-action="go-user-management-from-hint"
-            class="h-9 px-4 rounded-full bg-gold text-white font-display text-xs tracking-wide active:scale-95 transition-transform">
-            ${t('registration_hint_btn')}
-          </button>
-          <button data-action="dismiss-registration-hint"
-            class="h-9 px-4 rounded-full border-2 border-ink/15 text-ink/50 text-xs active:scale-95 transition-transform">
-            ${t('registration_hint_dismiss')}
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function renderDeviceMode() {
   const multiLocked = state.entitlement !== 'multi';
   return `
-    <div class="pt-14 pb-6 text-center">
+    <div class="pt-16 pb-10 text-center">
       <img src="icon.png" alt="Archery Arena Logo" class="mx-auto mb-4 rounded-2xl shadow-sm" style="width:96px;height:96px;">
-      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">${t('device_kicker')}</p>
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">Bogenschießen</p>
       <h1 class="font-display text-5xl text-pinedark mb-2">Archery Arena</h1>
-      <p class="text-ink/60 text-sm">${t('device_question')}</p>
+      <p class="text-ink/60 text-sm">Wie wollt ihr spielen?</p>
     </div>
-    ${renderLanguageSwitcher()}
-    ${renderRegistrationHintBanner()}
     <button data-action="choose-single"
       class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
-      <p class="font-display text-2xl text-pinedark mb-1">${t('single_device_title')}</p>
-      <p class="text-sm text-ink/60 leading-relaxed">${t('single_device_desc')}</p>
+      <p class="font-display text-2xl text-pinedark mb-1">📱 Single Device</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Alle spielen zusammen an einem Handy oder Tablet – wie bisher.</p>
     </button>
     <button data-action="${multiLocked ? 'locked-multi' : 'choose-multi'}"
       class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 active:scale-[0.98] transition-transform ${multiLocked ? 'opacity-60' : ''}">
-      <p class="font-display text-2xl text-pinedark mb-1">${t('multi_device_title')}${multiLocked ? ' 🔒' : ''}</p>
-      <p class="text-sm text-ink/60 leading-relaxed">${multiLocked ? t('multi_device_locked_desc') : t('multi_device_desc')}</p>
+      <p class="font-display text-2xl text-pinedark mb-1">🌐 Multi Device${multiLocked ? ' 🔒' : ''}</p>
+      <p class="text-sm text-ink/60 leading-relaxed">${multiLocked ? 'Nur mit Multi-Device-Abo verfügbar. Antippen zum Freischalten.' : 'Ein Gerät führt das Spiel, alle anderen sehen den Stand live mit – über einen gemeinsamen Code.'}</p>
     </button>
     <button data-action="go-user-management"
       class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-4 mt-4 active:scale-[0.98] transition-transform">
-      <p class="font-display text-lg text-pinedark">${t('user_mgmt_title')}</p>
-      <p class="text-xs text-ink/50 leading-relaxed">${t('user_mgmt_desc_short')}</p>
+      <p class="font-display text-lg text-pinedark">👤 Nutzer verwalten</p>
+      <p class="text-xs text-ink/50 leading-relaxed">Namen einmal anlegen, bei jedem Spiel schnell auswählen.</p>
     </button>
     <a href="mailto:nguyengiakai@gmail.com?subject=Archery%20Arena%20Feedback" class="block text-center text-xs text-ink/30 mt-6">
-      ${t('feedback_link')}
+      ✉️ Feedback
     </a>
   `;
 }
@@ -3004,16 +1303,16 @@ function renderUserManagement() {
   const profiles = loadUserProfiles();
   return `
     <div class="pt-12 pb-6 text-center">
-      <button data-action="back-to-device-mode" class="text-sm text-ink/50 mb-4 block">${t('nav_back')}</button>
-      <h1 class="font-display text-3xl text-pinedark mb-2">${t('user_mgmt_title')}</h1>
-      <p class="text-sm text-ink/60">${t('user_mgmt_sub')}</p>
+      <button data-action="back-to-device-mode" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark mb-2">👤 Nutzer verwalten</h1>
+      <p class="text-sm text-ink/60">Einmal anlegen, bei jedem Spiel schnell auswählen</p>
     </div>
     <button data-action="new-user"
       class="w-full h-13 py-3 mb-4 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
-      ${t('new_user_btn')}
+      + Neuer Nutzer
     </button>
     ${profiles.length === 0 ? `
-      <p class="text-center text-sm text-ink/50 mt-8">${t('no_users_yet')}</p>
+      <p class="text-center text-sm text-ink/50 mt-8">Noch keine Nutzer angelegt.</p>
     ` : profiles.map(p => `
       <div class="bg-white rounded-2xl border-2 border-parchment2 p-4 mb-3 flex items-center justify-between gap-3">
         <div class="min-w-0">
@@ -3033,67 +1332,35 @@ function renderUserEdit() {
   const editing = state.editingUserId ? loadUserProfiles().find(p => p.id === state.editingUserId) : null;
   return `
     <div class="pt-12 pb-6 text-center">
-      <button data-action="cancel-user-edit" class="text-sm text-ink/50 mb-4 block">${t('nav_back')}</button>
-      <h1 class="font-display text-3xl text-pinedark mb-2">${editing ? t('edit_user_title') : t('new_user_title')}</h1>
+      <button data-action="cancel-user-edit" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark mb-2">${editing ? 'Nutzer bearbeiten' : 'Neuer Nutzer'}</h1>
     </div>
-    <div class="form-card bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
+    <div class="bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
       <label class="block mb-4">
-        <span class="text-sm font-medium text-ink/70 mb-1 block">${t('firstname_label')}</span>
+        <span class="text-sm font-medium text-ink/70 mb-1 block">Vorname</span>
         <input type="text" id="user-firstname-input" value="${editing ? escapeHtml(editing.firstName) : ''}"
           class="w-full h-12 px-4 rounded-xl border-2 border-parchment2 focus:border-gold outline-none text-base font-medium" maxlength="30">
       </label>
       <label class="block mb-4">
-        <span class="text-sm font-medium text-ink/70 mb-1 block">${t('lastname_label')}</span>
+        <span class="text-sm font-medium text-ink/70 mb-1 block">Nachname</span>
         <input type="text" id="user-lastname-input" value="${editing ? escapeHtml(editing.lastName) : ''}"
           class="w-full h-12 px-4 rounded-xl border-2 border-parchment2 focus:border-gold outline-none text-base font-medium" maxlength="30">
       </label>
       <label class="block mb-6">
-        <span class="text-sm font-medium text-ink/70 mb-1 block">${t('arenaname_label')}</span>
+        <span class="text-sm font-medium text-ink/70 mb-1 block">Arena-Name (Anzeigename im Spiel)</span>
         <input type="text" id="user-nickname-input" value="${editing ? escapeHtml(editing.nickname) : ''}"
-          class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium" maxlength="24" placeholder="${t('arenaname_placeholder')}">
+          class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium" maxlength="24" placeholder="z. B. Falkenauge">
       </label>
       <button data-action="save-user"
         class="w-full h-13 py-3 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform mb-3">
-        ${t('save_btn')}
+        Speichern
       </button>
       ${editing ? `
         <button data-action="delete-user" data-user-id="${editing.id}"
           class="w-full h-11 rounded-xl border-2 border-ink/15 text-ink/50 font-medium text-sm">
-          ${t('delete_user_btn')}
+          Nutzer löschen
         </button>
       ` : ''}
-    </div>
-    ${editing ? renderCentralRegistrationSection(editing) : ''}
-  `;
-}
-
-function renderCentralRegistrationSection(editing) {
-  if (editing.centralCode) {
-    return `
-      <div class="form-card bg-white rounded-2xl border-2 border-gold p-6 mt-4">
-        <p class="text-sm font-medium text-ink/70 mb-2">${t('registered_label')}</p>
-        <p class="font-display text-2xl text-pinedark tracking-[0.15em] text-center mb-2">${formatNineDigitCode(editing.centralCode)}</p>
-        <p class="text-xs text-ink/50 text-center">${t('registered_hint')}</p>
-      </div>
-    `;
-  }
-  const hasEntitlement = state.entitlement === 'single' || state.entitlement === 'multi';
-  return `
-    <div class="form-card bg-white rounded-2xl border border-parchment2 shadow-sm p-6 mt-4">
-      <p class="text-sm font-medium text-ink/70 mb-2">${t('register_section_title')}</p>
-      <p class="text-xs text-ink/50 mb-3">${t('register_section_desc')}</p>
-      <p class="text-xs font-medium mb-3 ${hasEntitlement ? 'text-gold' : 'text-ink/70'}">
-        ${hasEntitlement ? t('registration_free_with_plan') : t('registration_fee_notice')}
-      </p>
-      <label class="flex items-start gap-2 mb-4">
-        <input type="checkbox" id="register-consent-checkbox" class="mt-1 h-4 w-4 shrink-0">
-        <span class="text-xs text-ink/60 leading-relaxed">${t('register_consent_text')}</span>
-      </label>
-      ${state.registerError ? `<p class="text-xs mb-3" style="color:#A93F3F;">${state.registerError}</p>` : ''}
-      <button data-action="register-user-centrally" data-user-id="${editing.id}" ${state.registerBusy ? 'disabled' : ''}
-        class="w-full h-12 rounded-xl border-2 border-gold text-gold font-display text-base tracking-wide active:scale-[0.98] transition-transform ${state.registerBusy ? 'opacity-50' : ''}">
-        ${state.registerBusy ? t('registering_label') : (hasEntitlement ? t('register_btn') : t('register_btn_paid'))}
-      </button>
     </div>
   `;
 }
@@ -3102,25 +1369,25 @@ function renderMultiChoice() {
   const list = loadAllLocalSessions();
   return `
     <div class="pt-12 pb-6 text-center">
-      <button data-action="back-to-device-mode" class="text-sm text-ink/50 mb-4 block">${t('nav_back')}</button>
-      <h1 class="font-display text-3xl text-pinedark">${t('multi_device_heading')}</h1>
+      <button data-action="back-to-device-mode" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark">Multi Device</h1>
     </div>
     ${list.length > 0 ? `
       <button data-action="go-sessions-list"
         class="w-full text-left bg-white rounded-2xl border-2 border-gold p-5 mb-4 active:scale-[0.98] transition-transform">
-        <p class="font-display text-2xl text-pinedark mb-1">${t('my_sessions_title', list.length)}</p>
-        <p class="text-sm text-ink/60 leading-relaxed">${t('my_sessions_desc')}</p>
+        <p class="font-display text-2xl text-pinedark mb-1">📂 Meine Sessions (${list.length})</p>
+        <p class="text-sm text-ink/60 leading-relaxed">Frühere Sessions ansehen und fortsetzen – z. B. wenn eine Gruppe zwischendurch pausiert hat.</p>
       </button>
     ` : ''}
     <button data-action="host-session"
       class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
-      <p class="font-display text-2xl text-pinedark mb-1">${t('new_session_title')}</p>
-      <p class="text-sm text-ink/60 leading-relaxed">${t('new_session_desc')}</p>
+      <p class="font-display text-2xl text-pinedark mb-1">🎯 Neue Session starten</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Dieses Gerät steuert das Spiel und bekommt einen Code zum Weitergeben.</p>
     </button>
     <button data-action="show-join-screen"
       class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 active:scale-[0.98] transition-transform">
-      <p class="font-display text-2xl text-pinedark mb-1">${t('join_session_title')}</p>
-      <p class="text-sm text-ink/60 leading-relaxed">${t('join_session_desc')}</p>
+      <p class="font-display text-2xl text-pinedark mb-1">🔑 Session beitreten</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Code eingeben und den Spielstand live mitverfolgen (nur Zuschauen).</p>
     </button>
   `;
 }
@@ -3140,12 +1407,12 @@ function renderSessionsList() {
   const list = loadAllLocalSessions();
   return `
     <div class="pt-12 pb-6 text-center">
-      <button data-action="back-to-multi-choice" class="text-sm text-ink/50 mb-4 block">${t('nav_back')}</button>
-      <h1 class="font-display text-3xl text-pinedark mb-2">${t('sessions_list_heading')}</h1>
-      <p class="text-sm text-ink/60">${t('sessions_list_sub')}</p>
+      <button data-action="back-to-multi-choice" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark mb-2">Meine Sessions</h1>
+      <p class="text-sm text-ink/60">Zuletzt genutzte Sessions auf diesem Gerät (max. 48h gespeichert)</p>
     </div>
     ${list.length === 0 ? `
-      <p class="text-center text-sm text-ink/50 mt-10">${t('no_sessions_found')}</p>
+      <p class="text-center text-sm text-ink/50 mt-10">Keine gespeicherten Sessions gefunden.</p>
     ` : list.map(s => {
       const isLoading = resumingCode === s.code;
       const disabled = resumingCode !== null;
@@ -3153,9 +1420,9 @@ function renderSessionsList() {
       <div class="bg-white rounded-2xl border-2 ${isLoading ? 'border-gold' : 'border-parchment2'} p-4 mb-3 flex items-center justify-between gap-3">
         <button data-action="resume-session" data-code="${s.code}" data-role="${s.role}" ${disabled ? 'disabled' : ''}
           class="text-left flex-1 active:scale-[0.98] transition-transform ${disabled && !isLoading ? 'opacity-40' : ''}">
-          <p class="font-display text-xl text-pinedark">${t('code_word')} ${s.code}${isLoading ? t('loading_suffix') : ''}</p>
-          <p class="text-xs text-ink/50 mt-0.5">${escapeHtml(s.label || t('session_label_default'))} · ${s.role === 'host' ? t('role_host') : t('role_spectator')}</p>
-          <p class="text-[11px] text-ink/40 mt-0.5">${t('started_label')} ${formatDateTime(s.createdAt || s.savedAt)} · ${t('last_active_label')} ${timeAgoLabel(s.savedAt)}</p>
+          <p class="font-display text-xl text-pinedark">Code ${s.code}${isLoading ? ' · lädt...' : ''}</p>
+          <p class="text-xs text-ink/50 mt-0.5">${escapeHtml(s.label || 'Session')} · ${s.role === 'host' ? '🎯 Host' : '👁 Zuschauer'}</p>
+          <p class="text-[11px] text-ink/40 mt-0.5">Gestartet: ${formatDateTime(s.createdAt || s.savedAt)} · zuletzt aktiv ${timeAgoLabel(s.savedAt)}</p>
         </button>
         <button data-action="remove-session" data-code="${s.code}" ${disabled ? 'disabled' : ''}
           class="h-9 w-9 rounded-lg border-2 border-ink/15 text-ink/40 flex items-center justify-center shrink-0 ${disabled ? 'opacity-40' : ''}">🗑</button>
@@ -3169,16 +1436,16 @@ function renderHostCodeScreen() {
   const joinUrl = joinUrlForCode(state.sessionCode);
   return `
     <div class="pt-12 pb-8 text-center">
-      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">${t('session_code_kicker')}</p>
-      <div class="form-card bg-white rounded-2xl border-2 border-gold py-6 px-6 my-4">
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">Session-Code</p>
+      <div class="bg-white rounded-2xl border-2 border-gold py-6 px-6 my-4">
         <p class="font-display text-5xl text-pinedark tracking-[0.2em] mb-4">${state.sessionCode}</p>
-        <img src="${qrImageUrl(joinUrl)}" alt="QR code" class="mx-auto rounded-xl border border-parchment2" width="180" height="180">
+        <img src="${qrImageUrl(joinUrl)}" alt="QR-Code zum Beitreten" class="mx-auto rounded-xl border border-parchment2" width="180" height="180">
         <p class="text-[11px] text-ink/40 mt-3 break-all leading-relaxed">${escapeHtml(joinUrl)}</p>
       </div>
-      <p class="text-sm text-ink/60 mb-8 px-2">${t('qr_instruction')}</p>
+      <p class="text-sm text-ink/60 mb-8 px-2">QR-Code scannen oder Code eintippen – andere Geräte sehen den Spielstand dann live mit.</p>
       <button data-action="continue-after-host"
         class="w-full h-13 py-3 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
-        ${t('continue_btn')}
+        Weiter
       </button>
     </div>
   `;
@@ -3187,17 +1454,17 @@ function renderHostCodeScreen() {
 function renderJoinScreen() {
   return `
     <div class="pt-12 pb-6 text-center">
-      <button data-action="back-to-multi-choice" class="text-sm text-ink/50 mb-4 block">${t('nav_back')}</button>
-      <h1 class="font-display text-3xl text-pinedark mb-2">${t('join_heading')}</h1>
-      <p class="text-sm text-ink/60">${t('join_sub')}</p>
+      <button data-action="back-to-multi-choice" class="text-sm text-ink/50 mb-4 block">← Zurück</button>
+      <h1 class="font-display text-3xl text-pinedark mb-2">Session beitreten</h1>
+      <p class="text-sm text-ink/60">Code vom Host eingeben</p>
     </div>
-    <div class="form-card bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
+    <div class="bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
       <input type="text" id="join-code-input" maxlength="4" inputmode="numeric" placeholder="0000" value="${state.prefillJoinCode ? escapeHtml(state.prefillJoinCode) : ''}"
         class="w-full h-16 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-center font-display text-3xl tracking-[0.3em] mb-4">
-      <p id="join-error" class="text-sm text-center mb-4 hidden" style="color:#A93F3F;">${t('join_error')}</p>
+      <p id="join-error" class="text-sm text-center mb-4 hidden" style="color:#A93F3F;">Bitte einen 4-stelligen Code eingeben.</p>
       <button data-action="submit-join-code"
         class="w-full h-13 py-3 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
-        ${t('join_btn')}
+        Beitreten
       </button>
     </div>
   `;
@@ -3206,11 +1473,11 @@ function renderJoinScreen() {
 function renderSpectatorWaiting() {
   return `
     <div class="pt-20 text-center px-4">
-      <p class="font-display text-2xl text-pinedark mb-2">${t('waiting_host')}</p>
-      <p class="text-sm text-ink/60 mb-6">${t('code_prefix')} ${state.sessionCode}</p>
+      <p class="font-display text-2xl text-pinedark mb-2">⏳ Warte auf den Host...</p>
+      <p class="text-sm text-ink/60 mb-6">Code: ${state.sessionCode}</p>
       ${state.joinTimedOut ? `
-        <p class="text-sm mb-4" style="color:#A93F3F;">${t('host_not_found')}</p>
-        <button data-action="back-to-multi-choice" class="h-11 px-6 rounded-xl border-2 border-ink/15 text-sm font-medium">${t('nav_back')}</button>
+        <p class="text-sm mb-4" style="color:#A93F3F;">Kein Host mit diesem Code gefunden. Code prüfen oder erneut versuchen.</p>
+        <button data-action="back-to-multi-choice" class="h-11 px-6 rounded-xl border-2 border-ink/15 text-sm font-medium">← Zurück</button>
       ` : ''}
     </div>
   `;
@@ -3218,11 +1485,11 @@ function renderSpectatorWaiting() {
 
 function renderDeviceBadge() {
   if (!state.sessionCode) return '';
-  const label = state.isHost ? `${t('device_badge_host')} ${state.sessionCode}` : `${t('device_badge_spectator')} ${state.sessionCode}`;
+  const label = state.isHost ? `Host · Code ${state.sessionCode}` : `Zuschauer · Code ${state.sessionCode}`;
   return `
     <div class="flex items-center justify-between bg-gold text-white text-xs font-medium px-3 py-1.5 -mx-4 mb-2">
       <span>🌐 ${label}</span>
-      <button data-action="leave-session" class="underline">${t('leave_btn')}</button>
+      <button data-action="leave-session" class="underline">Verlassen</button>
     </div>
   `;
 }
@@ -3233,10 +1500,10 @@ function renderPlayerCount() {
   for (let n = MIN_PLAYERS; n <= MAX_PLAYERS; n++) options.push(n);
   return `
     <div class="pt-12 pb-10 text-center">
-      <button data-action="back-to-device-mode" class="text-sm text-ink/50 mb-6 block">${t('nav_back')}</button>
-      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">${t('device_kicker')}</p>
+      <button data-action="back-to-device-mode" class="text-sm text-ink/50 mb-6 block">← Zurück</button>
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">Bogenschießen</p>
       <h1 class="font-display text-5xl text-pinedark mb-2">Archery Arena</h1>
-      <p class="text-ink/60 text-sm">${t('player_count_question')}</p>
+      <p class="text-ink/60 text-sm">Wie viele Spieler / Teams seid ihr?</p>
     </div>
     <div class="flex flex-wrap justify-center gap-3">
       ${options.map(n => `
@@ -3251,56 +1518,38 @@ function renderPlayerCount() {
 function renderModeSelect() {
   return `
     <div class="pt-12 pb-6 text-center">
-      <button data-action="back-to-count" class="text-sm text-ink/50 mb-4 block">${t('nav_back_player_count')}</button>
-      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">${t('mode_select_kicker', state.numPlayers)}</p>
-      <h1 class="font-display text-3xl text-pinedark">${t('mode_select_heading')}</h1>
+      <button data-action="back-to-count" class="text-sm text-ink/50 mb-4 block">← Spieleranzahl ändern</button>
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1">Archery Arena · ${state.numPlayers} Spieler</p>
+      <h1 class="font-display text-3xl text-pinedark">Wähle euer Spiel</h1>
     </div>
-
-    ${renderRegistrationHintBanner()}
 
     <button data-action="pick-mode" data-mode="tree"
       class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
-      <p class="font-display text-2xl text-pinedark mb-1">${t('tree_title')}</p>
-      <p class="text-sm text-ink/60 leading-relaxed">${t('tree_desc')}</p>
+      <p class="font-display text-2xl text-pinedark mb-1">🎄 Tannenbaum</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Klassisches Zahlenschießen: Jeder räumt seinen eigenen Tannenbaum ab.</p>
     </button>
 
     <button data-action="pick-mode" data-mode="points"
       class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
-      <p class="font-display text-2xl text-pinedark mb-1">${t('points_title')}</p>
-      <p class="text-sm text-ink/60 leading-relaxed">${t('points_desc')}</p>
+      <p class="font-display text-2xl text-pinedark mb-1">🏹 Punktejagd</p>
+      <p class="text-sm text-ink/60 leading-relaxed">3 Runden, Pfeilanzahl pro Runde wählbar (3–9). Bei Gleichstand: Stechen.</p>
     </button>
 
     <button data-action="pick-mode" data-mode="lotto"
       class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
-      <p class="font-display text-2xl text-pinedark mb-1">${t('lotto_title')}</p>
-      <p class="text-sm text-ink/60 leading-relaxed">${t('lotto_desc')}</p>
+      <p class="font-display text-2xl text-pinedark mb-1">🎲 Zahlenlotto</p>
+      <p class="text-sm text-ink/60 leading-relaxed"><strong>Club</strong>: nur Farbzone treffen. <strong>Hardcore</strong>: exakte Zahl. Pfeilanzahl 3–6 wählbar. Bei Gleichstand: Stechen.</p>
     </button>
 
     <button data-action="pick-mode" data-mode="null"
       class="w-full text-left bg-white rounded-2xl border-2 border-parchment2 p-5 mb-4 active:scale-[0.98] transition-transform">
-      <p class="font-display text-2xl text-pinedark mb-1">${t('null_title')}</p>
-      <p class="text-sm text-ink/60 leading-relaxed">${t('null_desc')}</p>
+      <p class="font-display text-2xl text-pinedark mb-1">🎯 Nullschuss</p>
+      <p class="text-sm text-ink/60 leading-relaxed">Start bei 401, 301 oder 201. Wer als Erstes auf 0 trifft, gewinnt bei Gleichstand mit den wenigsten Pfeilen.</p>
     </button>
 
-    <button data-action="pick-mode" data-mode="training"
-      class="w-full text-left bg-white rounded-2xl border-2 border-gold p-5 mb-4 active:scale-[0.98] transition-transform">
-      <p class="font-display text-2xl text-pinedark mb-1">${t('training_title')}</p>
-      <p class="text-sm text-ink/60 leading-relaxed">${t('training_desc')}</p>
+    <button data-action="go-stats" class="w-full text-center text-sm text-ink/50 mt-1 py-2">
+      📊 Statistik ansehen
     </button>
-
-    <div class="flex items-center justify-center flex-wrap gap-4 mt-1">
-      <button data-action="go-stats" class="text-center text-sm text-ink/50 py-2">
-        ${t('view_stats_btn')}
-      </button>
-      <span class="text-ink/20">|</span>
-      <button data-action="go-training-stats" class="text-center text-sm text-ink/50 py-2">
-        ${t('view_training_stats_btn')}
-      </button>
-      <span class="text-ink/20">|</span>
-      <button data-action="go-world-map" class="text-center text-sm text-ink/50 py-2">
-        ${t('view_world_map_btn')}
-      </button>
-    </div>
   `;
 }
 
@@ -3319,74 +1568,74 @@ function renderSetup() {
   const isLotto = state.mode === 'lotto';
   const isNull = state.mode === 'null';
   const title = isLotto ? '🎲 Setup' : (isPoints ? '🏹 Setup' : (isNull ? '🎯 Setup' : '🎄 Setup'));
-  const label = isLotto ? t('lotto_title').replace('🎲 ', '') : (isPoints ? t('points_title').replace('🏹 ', '') : (isNull ? t('null_title').replace('🎯 ', '') : t('tree_title').replace('🎄 ', '')));
+  const label = isLotto ? 'Zahlenlotto' : (isPoints ? 'Punktejagd' : (isNull ? 'Nullschuss' : 'Tannenbaum'));
 
   return `
     <div class="pt-10 pb-6">
-      <button data-action="back-to-mode" class="text-sm text-ink/50 mb-4">${t('nav_back_other_game')}</button>
+      <button data-action="back-to-mode" class="text-sm text-ink/50 mb-4">← Anderes Spiel wählen</button>
       <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1 text-center">${label}</p>
       <h1 class="font-display text-4xl text-pinedark text-center">${title}</h1>
     </div>
-    <div class="form-card bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
+    <div class="bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
       ${state.playerNames.map((name, i) => {
         const c = PLAYER_COLORS[i % PLAYER_COLORS.length];
         return `
           <label class="block mb-4">
-            <span class="text-sm font-medium text-ink/70 mb-1 block">${t('setup_player_label', i + 1)}</span>
+            <span class="text-sm font-medium text-ink/70 mb-1 block">Spieler / Team ${i + 1}</span>
             <div class="flex gap-2">
               <input type="text" data-player-input="${i}" value="${escapeHtml(name)}"
                 class="flex-1 h-12 px-4 rounded-xl border-2 border-${c.light} focus:border-${c.name} outline-none text-base font-medium"
-                placeholder="${t('setup_name_placeholder')}" maxlength="24">
+                placeholder="Name eingeben" maxlength="24">
               <button type="button" data-action="open-user-picker" data-idx="${i}"
-                class="h-12 w-12 rounded-xl border-2 border-${c.light} text-${c.name} flex items-center justify-center shrink-0" title="${t('setup_user_picker_title_attr')}">👤</button>
+                class="h-12 w-12 rounded-xl border-2 border-${c.light} text-${c.name} flex items-center justify-center shrink-0" title="Aus Nutzerliste wählen">👤</button>
             </div>
           </label>
         `;
       }).join('')}
       ${isPoints ? `
         <label class="block mb-4 mt-2">
-          <span class="text-sm font-medium text-ink/70 mb-1 block">${t('setup_rounds_label', MIN_POINTS_ROUNDS, MAX_POINTS_ROUNDS)}</span>
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Anzahl Runden (${MIN_POINTS_ROUNDS}–${MAX_POINTS_ROUNDS})</span>
           <input type="number" id="num-points-rounds-input" value="${state.numRoundsPoints}" min="${MIN_POINTS_ROUNDS}" max="${MAX_POINTS_ROUNDS}"
             class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
         </label>
         <label class="block mb-6">
-          <span class="text-sm font-medium text-ink/70 mb-1 block">${t('setup_arrows_per_round_label', MIN_POINTS_ARROWS, MAX_POINTS_ARROWS)}</span>
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Pfeile pro Runde (${MIN_POINTS_ARROWS}–${MAX_POINTS_ARROWS})</span>
           <input type="number" id="num-arrows-input" value="${state.numArrows}" min="${MIN_POINTS_ARROWS}" max="${MAX_POINTS_ARROWS}"
             class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
         </label>
       ` : ''}
       ${isLotto ? `
         <div class="mb-4 mt-2">
-          <span class="text-sm font-medium text-ink/70 mb-2 block">${t('setup_game_mode_label')}</span>
+          <span class="text-sm font-medium text-ink/70 mb-2 block">Spielmodus</span>
           <div class="flex gap-2">
             <button data-action="select-lotto-variant" data-value="club"
               class="flex-1 py-2 rounded-xl border-2 flex flex-col items-center transition-colors
                 ${state.lottoVariant === 'club' ? 'bg-pine border-pine text-parchment' : 'bg-white border-parchment2 text-ink/60'}">
-              <span class="font-display text-sm">${t('setup_club_label')}</span>
-              <span class="text-[10px] opacity-80">${t('setup_club_sub')}</span>
+              <span class="font-display text-sm">🎨 Club</span>
+              <span class="text-[10px] opacity-80">nur Farbe</span>
             </button>
             <button data-action="select-lotto-variant" data-value="hardcore"
               class="flex-1 py-2 rounded-xl border-2 flex flex-col items-center transition-colors
                 ${state.lottoVariant === 'hardcore' ? 'bg-pine border-pine text-parchment' : 'bg-white border-parchment2 text-ink/60'}">
-              <span class="font-display text-sm">${t('setup_hardcore_label')}</span>
-              <span class="text-[10px] opacity-80">${t('setup_hardcore_sub')}</span>
+              <span class="font-display text-sm">🎯 Hardcore</span>
+              <span class="text-[10px] opacity-80">exakte Zahl</span>
             </button>
           </div>
         </div>
         <label class="block mb-4">
-          <span class="text-sm font-medium text-ink/70 mb-1 block">${t('setup_rounds_max_label', MAX_LOTTO_ROUNDS)}</span>
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Anzahl Runden (max. ${MAX_LOTTO_ROUNDS})</span>
           <input type="number" id="num-rounds-input" value="${state.numRoundsLotto}" min="${MIN_LOTTO_ROUNDS}" max="${MAX_LOTTO_ROUNDS}"
             class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
         </label>
         <label class="block mb-6">
-          <span class="text-sm font-medium text-ink/70 mb-1 block">${t('setup_arrows_per_round_label', MIN_LOTTO_ARROWS, MAX_LOTTO_ARROWS)}</span>
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Pfeile pro Runde (${MIN_LOTTO_ARROWS}–${MAX_LOTTO_ARROWS})</span>
           <input type="number" id="num-lotto-arrows-input" value="${state.lottoArrowsPerRound}" min="${MIN_LOTTO_ARROWS}" max="${MAX_LOTTO_ARROWS}"
             class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
         </label>
       ` : ''}
       ${isNull ? `
         <div class="mb-4 mt-2">
-          <span class="text-sm font-medium text-ink/70 mb-2 block">${t('setup_start_score_label')}</span>
+          <span class="text-sm font-medium text-ink/70 mb-2 block">Startpunktzahl</span>
           <div class="flex gap-2">
             ${NULL_START_OPTIONS.map(v => `
               <button data-action="select-null-start" data-value="${v}"
@@ -3398,7 +1647,7 @@ function renderSetup() {
           </div>
         </div>
         <label class="block mb-6">
-          <span class="text-sm font-medium text-ink/70 mb-1 block">${t('setup_arrows_per_turn_label')}</span>
+          <span class="text-sm font-medium text-ink/70 mb-1 block">Pfeile pro Zug</span>
           <input type="number" id="num-null-arrows-input" value="${state.nullArrowsPerTurn}" min="${MIN_NULL_ARROWS}" max="${MAX_NULL_ARROWS}"
             class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
         </label>
@@ -3406,7 +1655,7 @@ function renderSetup() {
       ${!isPoints && !isLotto && !isNull ? '<div class="mb-2"></div>' : ''}
       <button data-action="start-game"
         class="w-full h-13 py-3 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
-        ${t('setup_start_btn')}
+        Spiel starten
       </button>
     </div>
     ${renderUserPickerOverlay()}
@@ -3419,12 +1668,12 @@ function renderUserPickerOverlay() {
   const profiles = loadUserProfiles();
   return `
     <div data-action="close-user-picker" class="fixed inset-0 z-50 flex items-end justify-center" style="background:rgba(15,42,31,0.55);">
-      <div class="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 pop-in" style="max-height:75vh;overflow-y:auto;">
+      <div class="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 pop-in" style="max-height:70vh;overflow-y:auto;">
         <div class="w-10 h-1.5 bg-parchment2 rounded-full mx-auto mb-4"></div>
-        <p class="text-center font-display text-lg text-pinedark mb-4">${t('picker_choose_player')}</p>
+        <p class="text-center font-display text-lg text-pinedark mb-4">Spieler auswählen</p>
         ${profiles.length === 0 ? `
-          <p class="text-center text-sm text-ink/50 mb-2">${t('picker_no_users')}</p>
-          <p class="text-center text-xs text-ink/40 mb-4">${t('picker_no_users_hint')}</p>
+          <p class="text-center text-sm text-ink/50 mb-2">Noch keine gespeicherten Nutzer.</p>
+          <p class="text-center text-xs text-ink/40 mb-4">Lege welche im Startmenü unter „👤 Nutzer verwalten" an.</p>
         ` : profiles.map(p => `
           <button data-action="pick-user-for-slot" data-user-id="${p.id}" data-idx="${idx}"
             class="w-full text-left bg-parchment rounded-xl px-4 py-3 mb-2 active:scale-[0.98] transition-transform">
@@ -3432,53 +1681,8 @@ function renderUserPickerOverlay() {
             <p class="text-xs text-ink/50">${escapeHtml(p.firstName)} ${escapeHtml(p.lastName)}</p>
           </button>
         `).join('')}
-
-        <div class="mt-3 pt-3 border-t border-parchment2">
-          <button type="button" data-action="toggle-code-picker"
-            class="w-full text-center text-sm text-gold font-medium py-2">
-            ${state.codePickerOpen ? t('code_picker_hide') : t('code_picker_show')}
-          </button>
-          ${state.codePickerOpen ? `
-            <div class="mt-2">
-              <input type="text" id="user-code-input" maxlength="11" inputmode="numeric" placeholder="123 456 789"
-                class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-center font-display text-lg tracking-[0.1em] mb-2">
-              ${state.codeInputError ? `<p class="text-xs text-center mb-2" style="color:#A93F3F;">${state.codeInputError}</p>` : ''}
-              <button data-action="submit-user-code" data-idx="${idx}" ${state.codeLookupBusy ? 'disabled' : ''}
-                class="w-full h-11 rounded-xl bg-gold text-white font-display text-sm tracking-wide active:scale-[0.98] transition-transform ${state.codeLookupBusy ? 'opacity-50' : ''}">
-                ${state.codeLookupBusy ? t('code_lookup_busy') : t('code_lookup_btn')}
-              </button>
-            </div>
-          ` : ''}
-        </div>
-
-        <button data-action="close-user-picker" class="w-full h-12 mt-3 rounded-xl border-2 border-ink/15 text-ink/50 font-display">
-          ${t('close_btn')}
-        </button>
-      </div>
-    </div>
-  `;
-}
-
-function renderCountryPickerOverlay() {
-  if (!state.countryPickerOpen) return '';
-  return `
-    <div data-action="close-country-picker" class="fixed inset-0 z-50 flex items-end justify-center" style="background:rgba(15,42,31,0.55);">
-      <div class="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 pop-in" style="max-height:75vh;overflow-y:auto;">
-        <div class="w-10 h-1.5 bg-parchment2 rounded-full mx-auto mb-4"></div>
-        <p class="text-center font-display text-lg text-pinedark mb-4">${t('choose_location_title')}</p>
-        ${CONTINENTS.map(cont => `
-          <p class="text-xs uppercase tracking-widest text-ink/40 mb-2 mt-3">${cont.flag} ${continentName(cont.key)}</p>
-          <div class="grid grid-cols-2 gap-2 mb-2">
-            ${COUNTRIES.filter(c => c.continent === cont.key).map(c => `
-              <button data-action="select-country" data-code="${c.code}"
-                class="text-left bg-parchment rounded-xl px-3 py-2 active:scale-[0.98] transition-transform ${state.currentCountry === c.code ? 'ring-2 ring-gold' : ''}">
-                <span class="text-sm">${c.flag} ${countryName(c.code)}</span>
-              </button>
-            `).join('')}
-          </div>
-        `).join('')}
-        <button data-action="close-country-picker" class="w-full h-12 mt-2 rounded-xl border-2 border-ink/15 text-ink/50 font-display">
-          ${t('close_btn')}
+        <button data-action="close-user-picker" class="w-full h-12 mt-2 rounded-xl border-2 border-ink/15 text-ink/50 font-display">
+          Schließen
         </button>
       </div>
     </div>
@@ -3490,7 +1694,7 @@ function renderRankingBanner(entries, title) {
   const medals = ['🥇', '🥈', '🥉'];
   return `
     <div class="mt-4 rounded-2xl bg-pine text-parchment px-5 py-4 pop-in">
-      <p class="font-display text-xl text-center mb-3">${title || t('ranking_default_title')}</p>
+      <p class="font-display text-xl text-center mb-3">${title || '🏆 Rangliste'}</p>
       <div class="flex flex-col gap-1.5">
         ${entries.map(e => `
           <div class="flex items-center justify-between text-sm gap-3">
@@ -3514,17 +1718,17 @@ function renderTreeGame() {
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <button data-action="go-home" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">🏠</button>
-          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="${t('switch_game_title_attr')}">🔁</button>` : ''}
-          <p class="font-display text-2xl text-pinedark">${t('game_name_tree')}</p>
+          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="Zurück zum Spielmenü">🔁</button>` : ''}
+          <p class="font-display text-2xl text-pinedark">Tannenbaum</p>
         </div>
         <div class="flex gap-2">
           <button data-action="undo" ${!canUndo ? 'disabled' : ''}
             class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium flex items-center gap-1 ${!canUndo ? 'opacity-35' : 'active:scale-95'}">
-            ${t('undo_btn')}
+            ↺ Undo
           </button>
           <button data-action="reset"
             class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium active:scale-95">
-            ${t('reset_btn')}
+            ⟲ Reset
           </button>
         </div>
       </div>
@@ -3547,7 +1751,7 @@ function renderTreeGame() {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
       ${[...Array(n).keys()].map(p => renderTreeCard(p)).join('')}
     </div>
   `;
@@ -3560,7 +1764,7 @@ function renderTreeRanking() {
     .sort((a, b) => totalHits(state.trees[b]) - totalHits(state.trees[a]));
   const order = [...finished, ...unfinishedActive];
   const entries = order.map((p, i) => ({
-    label: state.playerNames[p] + (finished.includes(p) ? '' : t('in_game_suffix')),
+    label: state.playerNames[p] + (finished.includes(p) ? '' : ' (im Spiel)'),
     value: `${totalHits(state.trees[p])}/${TREE_TOTAL}`,
     rank: i + 1,
   }));
@@ -3578,7 +1782,7 @@ function renderTreeCard(p) {
   return `
     <div id="tree-card-${p}" class="bg-white rounded-2xl border-2 ${isActive ? `border-${c.name}` : 'border-parchment2'} p-4 ${isActive || paused ? '' : 'tree-dim'} ${paused ? 'opacity-50' : ''}">
       <div class="flex items-center justify-between mb-3">
-        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? t('paused_suffix') : ''}</p>
+        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? ' · pausiert' : ''}</p>
         <p class="text-xs font-medium text-ink/50">${hits} / ${TREE_TOTAL}</p>
       </div>
       <div class="flex flex-col items-center gap-[6px]">
@@ -3625,7 +1829,7 @@ function renderPointsGame() {
       }
       const { order, totals, tiebreakTierBoundaries } = buildFinalRanking('points');
       const ranks = assignRanksForFinal(order, totals, tiebreakTierBoundaries);
-      const entries = order.map(p => ({ label: state.playerNames[p], value: t('points_suffix_full', totals[p]), rank: ranks[p] }));
+      const entries = order.map(p => ({ label: state.playerNames[p], value: `${totals[p]} Punkte`, rank: ranks[p] }));
       ranking = renderRankingBanner(entries);
     }
   }
@@ -3636,17 +1840,17 @@ function renderPointsGame() {
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <button data-action="go-home" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">🏠</button>
-          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="${t('switch_game_title_attr')}">🔁</button>` : ''}
-          <p class="font-display text-2xl text-pinedark">${t('game_name_points')}</p>
+          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="Zurück zum Spielmenü">🔁</button>` : ''}
+          <p class="font-display text-2xl text-pinedark">Punktejagd</p>
         </div>
         <div class="flex gap-2">
           <button data-action="undo-points" ${!canUndo ? 'disabled' : ''}
             class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium flex items-center gap-1 ${!canUndo ? 'opacity-35' : 'active:scale-95'}">
-            ${t('undo_btn')}
+            ↺ Undo
           </button>
           <button data-action="reset-points"
             class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium active:scale-95">
-            ${t('reset_btn')}
+            ⟲ Reset
           </button>
         </div>
       </div>
@@ -3655,13 +1859,13 @@ function renderPointsGame() {
           <button data-action="select-round" data-round="${r}"
             class="flex-1 min-w-[70px] h-11 rounded-xl font-display text-sm border-2 transition-colors
               ${state.pointsRound === r ? 'bg-gold border-gold text-white' : 'bg-white border-parchment2 text-ink/60'}">
-            ${t('round_label', r + 1)}
+            Runde ${r + 1}
           </button>
         `).join('')}
       </div>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
       ${[...Array(n).keys()].map(p => renderPointsCard(p)).join('')}
     </div>
     ${renderNumpadOverlay()}
@@ -3677,9 +1881,9 @@ function renderPointsCard(p) {
   return `
     <div class="bg-white rounded-2xl border-2 border-${c.name} p-4 ${paused ? 'opacity-50' : ''}">
       <div class="flex items-center justify-between mb-3">
-        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? t('paused_suffix') : ''}</p>
+        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? ' · pausiert' : ''}</p>
         <div class="flex items-center gap-2">
-          <p class="text-xs font-medium text-ink/50">${t('round_colon_points', round + 1, roundTotal(p, round))}</p>
+          <p class="text-xs font-medium text-ink/50">Runde ${round + 1}: ${roundTotal(p, round)} Pkt</p>
           ${pauseButtonHtml(p)}
         </div>
       </div>
@@ -3704,8 +1908,8 @@ function renderNumpadOverlay() {
     <div data-action="close-picker" class="fixed inset-0 z-50 flex items-end justify-center" style="background:rgba(15,42,31,0.55);">
       <div class="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 pop-in">
         <div class="w-10 h-1.5 bg-parchment2 rounded-full mx-auto mb-4"></div>
-        <p class="text-center text-sm text-ink/60 mb-1">${escapeHtml(state.playerNames[p])} · ${t('round_label', round + 1)}</p>
-        <p class="text-center font-display text-lg text-${c.name} mb-4">${t('arrow_pick_title', idx + 1)}</p>
+        <p class="text-center text-sm text-ink/60 mb-1">${escapeHtml(state.playerNames[p])} · Runde ${round + 1}</p>
+        <p class="text-center font-display text-lg text-${c.name} mb-4">Pfeil ${idx + 1} – Punktzahl wählen</p>
         <div class="grid grid-cols-3 gap-3">
           ${PHONE_KEYPAD_ORDER.map(val => `
             <button data-action="pick-score" data-player="${p}" data-round="${round}" data-idx="${idx}" data-value="${val}"
@@ -3715,7 +1919,7 @@ function renderNumpadOverlay() {
           `).join('')}
           <button data-action="close-picker"
             class="h-16 rounded-2xl border-2 border-ink/15 text-ink/50 font-display text-sm active:scale-90 transition-transform">
-            ${t('close_btn')}
+            Schließen
           </button>
         </div>
       </div>
@@ -3732,11 +1936,11 @@ function renderTiebreakPanel() {
   let body = '';
   if (tb.game === 'points') {
     body = `
-      <p class="text-sm text-parchment/80 text-center mb-3">${t('tiebreak_attempt_points', tb.attempt + 1, tb.maxAttempts)}</p>
+      <p class="text-sm text-parchment/80 text-center mb-3">Versuch ${tb.attempt + 1} von ${tb.maxAttempts} – höchste Zahl gewinnt</p>
       ${nextPlayer !== undefined ? `
-        <p class="text-center font-display text-lg mb-3">${t('tiebreak_shoots', escapeHtml(state.playerNames[nextPlayer]))}</p>
+        <p class="text-center font-display text-lg mb-3">${escapeHtml(state.playerNames[nextPlayer])} schießt</p>
         ${state.isSpectator ? `
-          <p class="text-xs text-parchment/60 text-center italic">${t('spectator_host_only_note')}</p>
+          <p class="text-xs text-parchment/60 text-center italic">👁 Zuschauer-Ansicht – Eingabe nur auf dem Host-Gerät</p>
         ` : `
           <div class="grid grid-cols-3 gap-2">
             ${PHONE_KEYPAD_ORDER.map(val => `
@@ -3763,20 +1967,20 @@ function renderTiebreakPanel() {
       callDisplay = `<div class="call-ball border-2 border-parchment bg-white/10 text-parchment mx-auto">${call}</div>`;
     }
     body = `
-      <p class="text-sm text-parchment/80 text-center mb-3">${t('tiebreak_attempt_lotto', tb.attempt + 1, tb.maxAttempts, isClub ? t('color_word') : t('number_word'))}</p>
+      <p class="text-sm text-parchment/80 text-center mb-3">Versuch ${tb.attempt + 1} von ${tb.maxAttempts} – richtige${isClub ? ' Farbe' : ' Zahl'} gewinnt</p>
       <div class="text-center mb-4">${callDisplay}</div>
       <div class="flex flex-col gap-2">
         ${contenders.map(p => `
           <div class="flex items-center justify-between gap-2">
             <span class="text-sm">${escapeHtml(state.playerNames[p])}</span>
             ${tb.answers[p] !== undefined ? `
-              <span class="text-xs px-2 py-1 rounded-full bg-parchment text-pine">${tb.answers[p] ? t('hit_label') : t('miss_label')}</span>
+              <span class="text-xs px-2 py-1 rounded-full bg-parchment text-pine">${tb.answers[p] ? '✅ Getroffen' : '❌ Verfehlt'}</span>
             ` : state.isSpectator ? `
-              <span class="text-xs text-parchment/50 italic">${t('waiting_label')}</span>
+              <span class="text-xs text-parchment/50 italic">wartet...</span>
             ` : `
               <span class="flex gap-2">
-                <button data-action="tiebreak-answer-lotto" data-player="${p}" data-hit="1" class="text-xs px-3 py-1.5 rounded-lg border border-parchment text-parchment">${t('hit_btn_label')}</button>
-                <button data-action="tiebreak-answer-lotto" data-player="${p}" data-hit="0" class="text-xs px-3 py-1.5 rounded-lg border border-parchment/50 text-parchment/70">${t('miss_btn_label')}</button>
+                <button data-action="tiebreak-answer-lotto" data-player="${p}" data-hit="1" class="text-xs px-3 py-1.5 rounded-lg border border-parchment text-parchment">✅ Treffer</button>
+                <button data-action="tiebreak-answer-lotto" data-player="${p}" data-hit="0" class="text-xs px-3 py-1.5 rounded-lg border border-parchment/50 text-parchment/70">❌ Verfehlt</button>
               </span>
             `}
           </div>
@@ -3787,8 +1991,8 @@ function renderTiebreakPanel() {
 
   return `
     <div class="mt-4 rounded-2xl bg-pine text-parchment px-5 py-4 pop-in">
-      <p class="font-display text-xl text-center mb-1">${t('tiebreak_title')}</p>
-      <p class="text-xs text-center text-parchment/70 mb-3">${t('tiebreak_tie_for_first', tb.contenders.map(p => escapeHtml(state.playerNames[p])).join(', '))}</p>
+      <p class="font-display text-xl text-center mb-1">⚡ Stechen</p>
+      <p class="text-xs text-center text-parchment/70 mb-3">Gleichstand um Platz 1: ${tb.contenders.map(p => escapeHtml(state.playerNames[p])).join(', ')}</p>
       ${body}
     </div>
   `;
@@ -3818,7 +2022,7 @@ function renderLottoGame() {
       }
       const { order, totals, tiebreakTierBoundaries } = buildFinalRanking('lotto');
       const ranks = assignRanksForFinal(order, totals, tiebreakTierBoundaries);
-      const entries = order.map(p => ({ label: state.playerNames[p], value: t('points_suffix_full', totals[p]), rank: ranks[p] }));
+      const entries = order.map(p => ({ label: state.playerNames[p], value: `${totals[p]} Punkte`, rank: ranks[p] }));
       ranking = renderRankingBanner(entries);
     }
   }
@@ -3829,17 +2033,17 @@ function renderLottoGame() {
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <button data-action="go-home" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">🏠</button>
-          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="${t('switch_game_title_attr')}">🔁</button>` : ''}
-          <p class="font-display text-2xl text-pinedark">${t('game_name_lotto')}</p>
+          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="Zurück zum Spielmenü">🔁</button>` : ''}
+          <p class="font-display text-2xl text-pinedark">Zahlenlotto</p>
         </div>
         <div class="flex gap-2">
           <button data-action="undo-lotto" ${!canUndo ? 'disabled' : ''}
             class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium flex items-center gap-1 ${!canUndo ? 'opacity-35' : 'active:scale-95'}">
-            ${t('undo_btn')}
+            ↺ Undo
           </button>
           <button data-action="reset-lotto"
             class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium active:scale-95">
-            ${t('reset_btn')}
+            ⟲ Reset
           </button>
         </div>
       </div>
@@ -3848,7 +2052,7 @@ function renderLottoGame() {
           <button data-action="select-lotto-round" data-round="${r}"
             class="flex-1 min-w-[70px] h-11 rounded-xl font-display text-sm border-2 transition-colors
               ${state.lottoRound === r ? 'bg-gold border-gold text-white' : 'bg-white border-parchment2 text-ink/60'}">
-            ${t('round_label', r + 1)}
+            Runde ${r + 1}
           </button>
         `).join('')}
       </div>
@@ -3886,11 +2090,11 @@ function renderLottoDrawCard(round) {
   const isClub = state.lottoVariant === 'club';
   return `
     <div class="bg-white rounded-2xl border-2 border-gold p-6 text-center">
-      <p class="font-display text-xl text-pinedark mb-2">${t('round_of_label', round + 1, state.numRoundsLotto)}</p>
-      <p class="text-sm text-ink/60 mb-5">${t('lotto_not_drawn_yet', isClub, state.lottoArrowsPerRound)}</p>
+      <p class="font-display text-xl text-pinedark mb-2">Runde ${round + 1} von ${state.numRoundsLotto}</p>
+      <p class="text-sm text-ink/60 mb-5">Noch ${isClub ? 'keine Farben' : 'keine Zahlen'} ausgelost. Bereit für die ${state.lottoArrowsPerRound} Zielwerte?</p>
       <button data-action="draw-lotto" data-round="${round}"
         class="h-12 px-6 rounded-xl bg-gold text-white font-display text-lg tracking-wide active:scale-95 transition-transform">
-        ${t('draw_btn', isClub)}
+        🎲 ${isClub ? 'Farben' : 'Zahlen'} auslosen
       </button>
     </div>
   `;
@@ -3902,7 +2106,7 @@ function renderLottoRoundContent(round, calls) {
 
   return `
     <div class="bg-white rounded-2xl border-2 border-gold p-4 mb-4 text-center dice-in">
-      <p class="text-xs uppercase tracking-widest text-ink/50 mb-2">${t('called_label', isClub, round + 1)}</p>
+      <p class="text-xs uppercase tracking-widest text-ink/50 mb-2">Aufgerufene ${isClub ? 'Farben' : 'Zahlen'} – Runde ${round + 1}</p>
       <div class="flex flex-wrap justify-center gap-3">
         ${isClub ? calls.map(key => {
           const def = LOTTO_COLORS.find(c => c.key === key);
@@ -3914,9 +2118,9 @@ function renderLottoRoundContent(round, calls) {
           `;
         }).join('') : calls.map(v => `<div class="call-ball border-2 border-gold bg-parchment2 text-pinedark">${v}</div>`).join('')}
       </div>
-      ${flagMatch ? `<p class="text-xs text-gold mt-3">${t('flag_easter_egg', flagMatch.flag, flagMatch.name)}</p>` : ''}
+      ${flagMatch ? `<p class="text-xs text-gold mt-3">💡 Sieht aus wie die Flagge von ${flagMatch.flag} ${flagMatch.name}!</p>` : ''}
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       ${[...Array(state.numPlayers).keys()].map(p => renderLottoPlayerCard(p, round)).join('')}
     </div>
   `;
@@ -3932,20 +2136,20 @@ function renderLottoPlayerCard(p, round) {
   return `
     <div class="bg-white rounded-2xl border-2 border-${c.name} p-4 ${paused ? 'opacity-50' : ''}">
       <div class="flex items-center justify-between mb-3">
-        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? t('paused_suffix') : ''}</p>
+        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? ' · pausiert' : ''}</p>
         <div class="flex items-center gap-2">
-          <p class="text-xs font-medium text-ink/50">${hits === null ? t('pts_dash') : t('pts_suffix', hitPoints(hits))}</p>
+          <p class="text-xs font-medium text-ink/50">${hits === null ? '– Pkt' : hitPoints(hits) + ' Pkt'}</p>
           ${pauseButtonHtml(p)}
         </div>
       </div>
-      <p class="text-xs text-ink/50 mb-2">${t('how_many_hit', count, isClub)}</p>
+      <p class="text-xs text-ink/50 mb-2">Wie viele der ${count} ${isClub ? 'Farben' : 'Zahlen'} getroffen?</p>
       <div class="flex flex-wrap gap-2">
         ${Array.from({ length: count + 1 }, (_, h) => h).map(h => `
           <button data-action="pick-lotto-hits" data-player="${p}" data-round="${round}" data-hits="${h}" ${paused ? 'disabled' : ''}
             class="hit-btn rounded-xl border-2 py-2 px-2 flex flex-col items-center transition-transform min-w-[52px]
               ${hits === h ? `bg-${c.name} border-${c.name} text-white` : `bg-${c.light} border-${c.name} text-${c.name}`}">
             <span class="font-display text-lg">${h}</span>
-            <span class="text-[10px] opacity-80">${t('pts_suffix', hitPoints(h))}</span>
+            <span class="text-[10px] opacity-80">${hitPoints(h)} Pkt</span>
           </button>
         `).join('')}
       </div>
@@ -3966,24 +2170,24 @@ function renderNullGame() {
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
           <button data-action="go-home" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">🏠</button>
-          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="${t('switch_game_title_attr')}">🔁</button>` : ''}
-          <p class="font-display text-2xl text-pinedark">${t('game_name_null')}</p>
+          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="Zurück zum Spielmenü">🔁</button>` : ''}
+          <p class="font-display text-2xl text-pinedark">Nullschuss</p>
         </div>
         <div class="flex gap-2">
           <button data-action="undo-null" ${!canUndo ? 'disabled' : ''}
             class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium flex items-center gap-1 ${!canUndo ? 'opacity-35' : 'active:scale-95'}">
-            ${t('undo_btn')}
+            ↺ Undo
           </button>
           <button data-action="reset-null"
             class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium active:scale-95">
-            ${t('reset_btn')}
+            ⟲ Reset
           </button>
         </div>
       </div>
-      <p class="text-xs font-medium text-ink/50 uppercase tracking-widest">${t('start_score_label', state.nullStartScore)}</p>
+      <p class="text-xs font-medium text-ink/50 uppercase tracking-widest">Start: ${state.nullStartScore} Punkte</p>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-5 mb-5">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 mb-5">
       ${[...Array(n).keys()].map(p => renderNullBoardCard(p)).join('')}
     </div>
 
@@ -3998,7 +2202,7 @@ function renderNullRanking() {
     .sort((a, b) => state.nullScores[a] - state.nullScores[b]);
   const order = [...finished, ...unfinishedActive];
   const entries = order.map((p, i) => ({
-    label: state.playerNames[p] + (finished.includes(p) ? t('arrows_used_suffix', state.nullArrowsUsed[p]) : t('in_game_suffix')),
+    label: state.playerNames[p] + (finished.includes(p) ? ` (${state.nullArrowsUsed[p]} Pfeile)` : ' (im Spiel)'),
     value: finished.includes(p) ? '0' : state.nullScores[p],
     rank: i + 1,
   }));
@@ -4016,7 +2220,7 @@ function renderNullBoardCard(p) {
   return `
     <div class="bg-white rounded-2xl border-2 ${isActive || isFinished ? `border-${c.name}` : 'border-parchment2'} p-4 ${isActive || isFinished || paused ? '' : 'tree-dim'} ${paused ? 'opacity-50' : ''}">
       <div class="flex items-center justify-between">
-        <p class="font-display text-lg text-${c.name}">${isActive ? '🎯 ' : ''}${medal ? medal + ' ' : ''}${escapeHtml(state.playerNames[p])}${paused ? t('paused_suffix') : ''}</p>
+        <p class="font-display text-lg text-${c.name}">${isActive ? '🎯 ' : ''}${medal ? medal + ' ' : ''}${escapeHtml(state.playerNames[p])}${paused ? ' · pausiert' : ''}</p>
         <div class="flex items-center gap-2">
           <p class="font-display text-3xl text-${c.name}">${state.nullScores[p]}</p>
           ${pauseButtonHtml(p)}
@@ -4034,8 +2238,8 @@ function renderNullTurnCard() {
 
   return `
     <div class="bg-white rounded-2xl border-2 border-${c.name} p-4">
-      <p class="font-display text-lg text-${c.name} mb-1">${t('turn_of', escapeHtml(state.playerNames[p]))}</p>
-      <p class="text-xs text-ink/50 mb-3">${t('remaining_after_turn')} <span class="font-display text-base text-${c.name}">${running}</span></p>
+      <p class="font-display text-lg text-${c.name} mb-1">${escapeHtml(state.playerNames[p])} ist am Zug</p>
+      <p class="text-xs text-ink/50 mb-3">Rest nach diesem Zug: <span class="font-display text-base text-${c.name}">${running}</span></p>
       <div class="flex flex-wrap gap-2 mb-4">
         ${Array.from({ length: state.nullArrowsPerTurn }).map((_, i) => `
           <div class="arrow-slot border-2 ${arrows[i] !== undefined ? `bg-${c.name} border-${c.name} text-white` : `border-${c.name} bg-${c.light} text-${c.name}`}">
@@ -4044,9 +2248,9 @@ function renderNullTurnCard() {
         `).join('')}
       </div>
       ${state.isSpectator ? `
-        <p class="text-xs text-ink/40 text-center italic">${t('spectator_host_only_note')}</p>
+        <p class="text-xs text-ink/40 text-center italic">👁 Zuschauer-Ansicht – Eingabe nur auf dem Host-Gerät</p>
       ` : `
-        <p class="text-xs text-ink/50 mb-2">${t('enter_arrow_value')}</p>
+        <p class="text-xs text-ink/50 mb-2">Pfeilwert eingeben:</p>
         <div class="grid grid-cols-3 gap-2">
           ${PHONE_KEYPAD_ORDER.map(val => `
             <button data-action="pick-null-arrow" data-value="${val}"
@@ -4064,7 +2268,7 @@ function renderNullBustBanner() {
   const p = state.nullBustMessage.player;
   return `
     <div class="mt-4 rounded-2xl px-5 py-3 text-center pop-in" style="background:#A93F3F;color:#fff;">
-      <p class="font-display text-lg">${t('bust_banner', escapeHtml(state.playerNames[p]))}</p>
+      <p class="font-display text-lg">💥 Überschossen! Zug von ${escapeHtml(state.playerNames[p])} verfällt.</p>
     </div>
   `;
 }
@@ -4089,19 +2293,19 @@ function renderStats() {
 
   return `
     <div class="pt-10 pb-6">
-      <button data-action="back-to-mode-from-stats" class="text-sm text-ink/50 mb-4">${t('nav_back')}</button>
-      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1 text-center">${t('stats_period_kicker')}</p>
-      <h1 class="font-display text-4xl text-pinedark text-center">${t('stats_title')}</h1>
+      <button data-action="back-to-mode-from-stats" class="text-sm text-ink/50 mb-4">← Zurück</button>
+      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1 text-center">Letzte 7 Tage</p>
+      <h1 class="font-display text-4xl text-pinedark text-center">📊 Statistik</h1>
     </div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div class="grid grid-cols-2 gap-3 mb-6">
       ${Object.keys(GAME_LABELS).map(g => {
         const s = summary[g];
         const topName = Object.keys(s.wins).sort((a, b) => s.wins[b] - s.wins[a])[0];
         return `
           <div class="bg-white rounded-2xl border border-parchment2 p-4">
-            <p class="font-display text-base text-pinedark mb-1">${GAME_LABELS[g].icon} ${t(GAME_LABELS[g].nameKey)}</p>
-            <p class="text-xs text-ink/50">${t('games_count_label', s.count)}</p>
+            <p class="font-display text-base text-pinedark mb-1">${GAME_LABELS[g].icon} ${GAME_LABELS[g].name}</p>
+            <p class="text-xs text-ink/50">${s.count} Spiel${s.count === 1 ? '' : 'e'}</p>
             ${topName ? `<p class="text-xs text-gold mt-1">👑 ${escapeHtml(topName)} (${s.wins[topName]}×)</p>` : ''}
           </div>
         `;
@@ -4109,7 +2313,7 @@ function renderStats() {
     </div>
 
     ${dates.length === 0 ? `
-      <p class="text-center text-sm text-ink/50 mt-10">${t('no_games_last7')}</p>
+      <p class="text-center text-sm text-ink/50 mt-10">Noch keine gespeicherten Spiele in den letzten 7 Tagen.</p>
     ` : dates.map(date => `
       <div class="mb-5">
         <p class="font-display text-sm text-ink/50 uppercase tracking-widest mb-2">${formatStatsDate(date)}</p>
@@ -4117,10 +2321,10 @@ function renderStats() {
           ${byDate[date].map(entry => `
             <div class="bg-white rounded-xl border border-parchment2 px-4 py-3 flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <p class="text-sm font-medium">${GAME_LABELS[entry.game].icon} ${t(GAME_LABELS[entry.game].nameKey)}</p>
+                <p class="text-sm font-medium">${GAME_LABELS[entry.game].icon} ${GAME_LABELS[entry.game].name}</p>
                 <p class="text-xs text-ink/50 truncate">${entry.players.map(escapeHtml).join(', ')} · ${entry.time}</p>
               </div>
-              <p class="text-sm font-display text-gold text-right whitespace-nowrap">${entry.winner === 'Unentschieden' ? '🤝' : '🏆'} ${entry.winner === 'Unentschieden' ? t('draw_label_result') : escapeHtml(entry.winner)}</p>
+              <p class="text-sm font-display text-gold text-right whitespace-nowrap">${entry.winner === 'Unentschieden' ? '🤝' : '🏆'} ${escapeHtml(entry.winner)}</p>
             </div>
           `).join('')}
         </div>
@@ -4129,439 +2333,9 @@ function renderStats() {
 
     ${stats.length > 0 ? `
       <button data-action="clear-stats" class="w-full h-11 mt-4 rounded-xl border-2 border-ink/15 text-sm font-medium text-ink/60 active:scale-95">
-        ${t('clear_stats_btn')}
+        🗑 Statistik löschen
       </button>
     ` : ''}
-  `;
-}
-
-/* ---------- Leistungsbogen (Training) ---------- */
-function renderTrainingSetup() {
-  return `
-    <div class="pt-10 pb-6">
-      <button data-action="back-to-mode" class="text-sm text-ink/50 mb-4">${t('nav_back_other_game')}</button>
-      <p class="font-display text-gold text-sm tracking-[0.3em] uppercase mb-1 text-center">${t('training_kicker')}</p>
-      <h1 class="font-display text-4xl text-pinedark text-center">🏹 Setup</h1>
-    </div>
-    <div class="form-card bg-white rounded-2xl border border-parchment2 shadow-sm p-6">
-      ${state.playerNames.map((name, i) => {
-        const c = PLAYER_COLORS[i % PLAYER_COLORS.length];
-        return `
-          <label class="block mb-4">
-            <span class="text-sm font-medium text-ink/70 mb-1 block">${t('setup_player_label', i + 1)}</span>
-            <div class="flex gap-2">
-              <input type="text" data-player-input="${i}" value="${escapeHtml(name)}"
-                class="flex-1 h-12 px-4 rounded-xl border-2 border-${c.light} focus:border-${c.name} outline-none text-base font-medium"
-                placeholder="${t('setup_name_placeholder')}" maxlength="24">
-              <button type="button" data-action="open-user-picker" data-idx="${i}"
-                class="h-12 w-12 rounded-xl border-2 border-${c.light} text-${c.name} flex items-center justify-center shrink-0" title="${t('setup_user_picker_title_attr')}">👤</button>
-            </div>
-          </label>
-        `;
-      }).join('')}
-      <label class="block mb-6">
-        <span class="text-sm font-medium text-ink/70 mb-1 block">${t('setup_arrows_per_round_label', MIN_TRAINING_ARROWS, MAX_TRAINING_ARROWS)}</span>
-        <input type="number" id="num-training-arrows-input" value="${state.trainingArrowsPerRound}" min="${MIN_TRAINING_ARROWS}" max="${MAX_TRAINING_ARROWS}"
-          class="w-full h-12 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-base font-medium">
-      </label>
-      <button type="button" data-action="open-country-picker"
-        class="w-full h-12 px-4 mb-6 rounded-xl border-2 border-gold/40 text-left flex items-center gap-2 text-base font-medium text-ink/70">
-        📍 ${state.currentCountry ? COUNTRIES.find(c => c.code === state.currentCountry).flag + ' ' + countryName(state.currentCountry) : t('set_location_btn')}
-      </button>
-      <button data-action="start-training"
-        class="w-full h-13 py-3 rounded-xl bg-pine text-parchment font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
-        ${t('setup_start_btn')}
-      </button>
-    </div>
-    ${renderUserPickerOverlay()}
-    ${renderCountryPickerOverlay()}
-  `;
-}
-
-function renderTrainingGame() {
-  const n = state.numPlayers;
-  const canUndo = state.trainingHistory.length > 0;
-
-  return `
-    <div class="sticky top-0 z-10 bg-parchment/95 backdrop-blur pt-4 pb-3 -mx-4 px-4 border-b border-parchment2">
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-2">
-          <button data-action="go-home" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center">🏠</button>
-          ${!state.isSpectator ? `<button data-action="switch-game" class="h-9 w-9 rounded-lg border-2 border-ink/15 flex items-center justify-center" title="${t('switch_game_title_attr')}">🔁</button>` : ''}
-          <p class="font-display text-2xl text-pinedark">${t('training_title')}</p>
-        </div>
-        <button data-action="undo-training" ${!canUndo ? 'disabled' : ''}
-          class="h-10 px-3 rounded-lg border-2 border-ink/15 text-sm font-medium flex items-center gap-1 ${!canUndo ? 'opacity-35' : 'active:scale-95'}">
-          ${t('undo_btn')}
-        </button>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        ${Array.from({ length: state.trainingRoundsCount }).map((_, r) => `
-          <button data-action="select-training-round" data-round="${r}"
-            class="flex-1 min-w-[70px] h-11 rounded-xl font-display text-sm border-2 transition-colors
-              ${state.trainingRound === r ? 'bg-gold border-gold text-white' : 'bg-white border-parchment2 text-ink/60'}">
-            ${t('round_label', r + 1)}
-          </button>
-        `).join('')}
-        ${!state.isSpectator ? `
-          <button data-action="add-training-round"
-            class="h-11 w-11 rounded-xl border-2 border-dashed border-gold text-gold font-display text-lg active:scale-95 transition-transform">+</button>
-        ` : ''}
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
-      ${[...Array(n).keys()].map(p => renderTrainingCard(p)).join('')}
-    </div>
-
-    ${!state.isSpectator ? `
-      <button data-action="finish-training"
-        class="w-full h-13 py-3 mt-5 rounded-xl bg-gold text-white font-display text-lg tracking-wide active:scale-[0.98] transition-transform">
-        ${t('finish_training_btn')}
-      </button>
-    ` : ''}
-    ${renderTrainingNumpadOverlay()}
-  `;
-}
-
-function renderTrainingCard(p) {
-  const round = state.trainingRound;
-  const values = state.trainingScores[p][round] || [];
-  const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
-  const paused = isPaused(p);
-  const total = trainingGrandTotal(p);
-  const arrows = trainingArrowsShot(p);
-  const avg = arrows > 0 ? (total / arrows).toFixed(1) : '–';
-  const roundComplete = values.every(v => v !== null);
-
-  return `
-    <div class="bg-white rounded-2xl border-2 border-${c.name} p-4 ${paused ? 'opacity-50' : ''}">
-      <div class="flex items-center justify-between mb-3">
-        <p class="font-display text-lg text-${c.name}">${escapeHtml(state.playerNames[p])}${paused ? t('paused_suffix') : ''}</p>
-        ${pauseButtonHtml(p)}
-      </div>
-      <div class="flex flex-wrap gap-2 mb-3">
-        ${values.map((v, idx) => `
-          <button data-action="open-training-picker" data-player="${p}" data-round="${round}" data-idx="${idx}" ${paused ? 'disabled' : ''}
-            class="arrow-slot border-2 ${v === null ? `border-${c.name} bg-${c.light} text-${c.name}` : `bg-${c.name} border-${c.name} text-white`}">
-            ${v === null ? '–' : v}
-          </button>
-        `).join('')}
-      </div>
-      ${!paused && !roundComplete ? `
-        <button type="button" data-action="start-photo-capture" data-player="${p}" data-round="${round}"
-          class="w-full h-10 mb-2 rounded-xl border-2 border-dashed border-${c.name} text-${c.name} text-sm font-medium flex items-center justify-center gap-2">
-          📷 ${t('photo_capture_btn')}
-        </button>
-      ` : ''}
-      <p class="text-xs font-medium text-ink/50">${t('training_total_label', total, arrows)} · ${t('training_avg_label', avg)}</p>
-    </div>
-  `;
-}
-
-function renderPhotoCaptureOverlay() {
-  if (!state.photoCapture) return '';
-  const pc = state.photoCapture;
-  const c = PLAYER_COLORS[pc.player % PLAYER_COLORS.length];
-
-  let stepText = '';
-  if (!pc.canvasWidth) {
-    stepText = t('photo_step_choose');
-  } else if (pc.step === 'center') {
-    stepText = t('photo_step_center');
-  } else if (pc.step === 'edge') {
-    stepText = t('photo_step_edge');
-  } else if (pc.step === 'arrows') {
-    stepText = t('photo_step_arrow', pc.taps.length + 1, state.trainingArrowsPerRound);
-  }
-
-  return `
-    <div class="fixed inset-0 z-[60] flex flex-col" style="background:rgba(10,10,10,0.95);">
-      <div class="flex items-center justify-between p-4">
-        <button data-action="close-photo-capture" class="text-white text-2xl leading-none">✕</button>
-        <p class="text-white font-display text-sm">${escapeHtml(state.playerNames[pc.player])} · ${t('round_label', pc.round + 1)}</p>
-        <span style="width:24px"></span>
-      </div>
-
-      <div class="flex-1 flex items-center justify-center overflow-hidden px-3">
-        ${!pc.canvasWidth ? `
-          <div class="text-center">
-            <input type="file" accept="image/*" capture="environment" id="photo-file-input" class="hidden"
-              onchange="handlePhotoFileSelected(this)">
-            <button type="button" onclick="document.getElementById('photo-file-input').click()"
-              class="h-14 px-6 rounded-2xl bg-gold text-white font-display text-lg tracking-wide active:scale-95 transition-transform">
-              📷 ${t('photo_pick_btn')}
-            </button>
-          </div>
-        ` : pc.step === 'result' ? renderPhotoResultPanel(pc, c) : `
-          <canvas id="photo-canvas" style="max-width:100%;max-height:100%;touch-action:none;border-radius:12px;"></canvas>
-        `}
-      </div>
-
-      ${pc.canvasWidth && pc.step !== 'result' ? `
-        <div class="p-4 text-center">
-          <p class="text-white text-sm mb-3">${stepText}</p>
-          <button type="button" data-action="reset-photo-calibration" class="text-white/60 text-xs underline">
-            ${t('photo_reset_btn')}
-          </button>
-        </div>
-      ` : ''}
-    </div>
-  `;
-}
-
-function renderPhotoResultPanel(pc, c) {
-  const tendencyLabels = {
-    centered: t('tendency_centered'),
-    top: t('tendency_top'),
-    bottom: t('tendency_bottom'),
-    left: t('tendency_left'),
-    right: t('tendency_right'),
-    top_left: t('tendency_top_left'),
-    top_right: t('tendency_top_right'),
-    bottom_left: t('tendency_bottom_left'),
-    bottom_right: t('tendency_bottom_right'),
-  };
-  const tendencyText = pc.tendency ? tendencyLabels[pc.tendency.direction] : '';
-  const total = pc.scores.reduce((a, b) => a + b, 0);
-
-  return `
-    <div class="w-full max-w-md bg-white rounded-2xl p-5 mx-3 pop-in">
-      <p class="text-center font-display text-lg text-pinedark mb-3">${t('photo_result_title')}</p>
-      <div class="flex flex-wrap gap-2 justify-center mb-4">
-        ${pc.scores.map(s => `
-          <div class="arrow-slot border-2 bg-${c.name} border-${c.name} text-white">${s}</div>
-        `).join('')}
-      </div>
-      <p class="text-center text-sm text-ink/60 mb-4">${t('training_total_label', total, pc.scores.length)}</p>
-      <div class="bg-parchment rounded-xl p-4 mb-5 text-center">
-        <p class="text-xs uppercase tracking-widest text-ink/40 mb-1">${t('photo_tendency_title')}</p>
-        <p class="font-display text-lg text-pinedark">${tendencyText}</p>
-        <p class="text-xs text-ink/40 mt-2">${t('photo_tendency_disclaimer')}</p>
-      </div>
-
-      <label class="flex items-start gap-2 mb-3">
-        <input type="checkbox" id="photo-donate-checkbox" ${state.photoDonateChecked ? 'checked' : ''}
-          onchange="state.photoDonateChecked = this.checked; render();"
-          class="mt-1 h-4 w-4 shrink-0">
-        <span class="text-xs text-ink/60 leading-relaxed">${t('photo_donate_text')}</span>
-      </label>
-      ${state.photoDonateDone ? `<p class="text-xs text-gold text-center mb-3">${t('photo_donate_done')}</p>` : ''}
-      ${state.photoDonateChecked && !state.photoDonateDone ? `
-        <button type="button" data-action="submit-photo-donation" ${state.photoDonateBusy ? 'disabled' : ''}
-          class="w-full h-11 mb-3 rounded-xl border-2 border-gold text-gold font-display text-sm tracking-wide ${state.photoDonateBusy ? 'opacity-50' : ''}">
-          ${state.photoDonateBusy ? t('photo_donate_busy') : t('photo_donate_btn')}
-        </button>
-      ` : ''}
-
-      <button data-action="apply-photo-scores"
-        class="w-full h-12 rounded-xl bg-pine text-parchment font-display text-base tracking-wide active:scale-[0.98] transition-transform">
-        ${t('photo_apply_btn')}
-      </button>
-      <button type="button" data-action="reset-photo-calibration" class="w-full h-10 mt-2 text-ink/50 text-xs underline">
-        ${t('photo_redo_btn')}
-      </button>
-    </div>
-  `;
-}
-
-function renderTrainingNumpadOverlay() {
-  if (!state.trainingPicker || state.isSpectator) return '';
-  const { player: p, round, idx } = state.trainingPicker;
-  const c = PLAYER_COLORS[p % PLAYER_COLORS.length];
-
-  return `
-    <div data-action="close-training-picker" class="fixed inset-0 z-50 flex items-end justify-center" style="background:rgba(15,42,31,0.55);">
-      <div class="w-full max-w-md bg-white rounded-t-3xl p-5 pb-8 pop-in">
-        <div class="w-10 h-1.5 bg-parchment2 rounded-full mx-auto mb-4"></div>
-        <p class="text-center text-sm text-ink/60 mb-1">${escapeHtml(state.playerNames[p])} · ${t('round_label', round + 1)}</p>
-        <p class="text-center font-display text-lg text-${c.name} mb-4">${t('arrow_pick_title', idx + 1)}</p>
-        <div class="grid grid-cols-3 gap-3">
-          ${PHONE_KEYPAD_ORDER.map(val => `
-            <button data-action="pick-training-score" data-player="${p}" data-round="${round}" data-idx="${idx}" data-value="${val}"
-              class="h-16 rounded-2xl border-2 border-${c.name} bg-${c.light} text-${c.name} font-display text-2xl active:scale-90 transition-transform">
-              ${val}
-            </button>
-          `).join('')}
-          <button data-action="close-training-picker"
-            class="h-16 rounded-2xl border-2 border-ink/15 text-ink/50 font-display text-sm active:scale-90 transition-transform">
-            ${t('close_btn')}
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderStatsCodeLookup() {
-  return `
-    <div class="mb-4">
-      <button type="button" data-action="toggle-stats-code-lookup"
-        class="text-sm text-gold font-medium">
-        ${state.statsCodeLookupOpen ? t('code_picker_hide') : t('load_by_code_btn')}
-      </button>
-      ${state.statsCodeLookupOpen ? `
-        <div class="mt-2 flex gap-2">
-          <input type="text" id="stats-code-input" maxlength="11" inputmode="numeric" placeholder="123 456 789"
-            class="flex-1 h-11 px-4 rounded-xl border-2 border-gold/40 focus:border-gold outline-none text-center font-display text-base tracking-[0.1em]">
-          <button data-action="submit-stats-code" ${state.statsLookupBusy ? 'disabled' : ''}
-            class="h-11 px-4 rounded-xl bg-gold text-white font-display text-sm tracking-wide active:scale-[0.98] transition-transform ${state.statsLookupBusy ? 'opacity-50' : ''}">
-            ${state.statsLookupBusy ? t('code_lookup_busy') : t('load_btn')}
-          </button>
-        </div>
-        ${state.statsLookupError ? `<p class="text-xs mt-2" style="color:#A93F3F;">${state.statsLookupError}</p>` : ''}
-      ` : ''}
-    </div>
-  `;
-}
-
-function renderTrainingStats() {
-  const archers = listTrainingArchers();
-  if (!state.trainingStatsArcher || !archers.includes(state.trainingStatsArcher)) {
-    state.trainingStatsArcher = archers[0] || null;
-  }
-  const periods = [
-    { key: 'day', label: t('period_day') },
-    { key: 'week', label: t('period_week') },
-    { key: 'month', label: t('period_month') },
-    { key: 'year', label: t('period_year') },
-  ];
-
-  const stats = state.trainingStatsArcher ? computeTrainingStatsFor(state.trainingStatsArcher, state.trainingStatsPeriod) : null;
-  const trendIcon = { up: '📈', down: '📉', flat: '➡️' };
-
-  return `
-    <div class="pt-10 pb-6">
-      <button data-action="back-to-mode-from-training-stats" class="text-sm text-ink/50 mb-4">${t('nav_back')}</button>
-      <h1 class="font-display text-4xl text-pinedark text-center">📈 ${t('training_stats_title')}</h1>
-    </div>
-
-    ${renderStatsCodeLookup()}
-
-    ${archers.length === 0 ? `
-      <p class="text-center text-sm text-ink/50 mt-10">${t('no_training_data')}</p>
-    ` : `
-      <div class="mb-4">
-        <span class="text-sm font-medium text-ink/70 mb-2 block">${t('archer_label')}</span>
-        <div class="flex flex-wrap gap-2">
-          ${archers.map(name => `
-            <button data-action="set-training-stats-archer" data-archer="${escapeHtml(name)}"
-              class="h-10 px-4 rounded-xl border-2 font-display text-sm transition-colors
-                ${state.trainingStatsArcher === name ? 'bg-pine border-pine text-parchment' : 'bg-white border-parchment2 text-ink/60'}">
-              ${escapeHtml(name)}
-            </button>
-          `).join('')}
-        </div>
-      </div>
-
-      <div class="flex gap-2 mb-5">
-        ${periods.map(pr => `
-          <button data-action="set-training-stats-period" data-period="${pr.key}"
-            class="flex-1 h-11 rounded-xl font-display text-sm border-2 transition-colors
-              ${state.trainingStatsPeriod === pr.key ? 'bg-gold border-gold text-white' : 'bg-white border-parchment2 text-ink/60'}">
-            ${pr.label}
-          </button>
-        `).join('')}
-      </div>
-
-      ${stats.sessionCount === 0 ? `
-        <p class="text-center text-sm text-ink/50 mt-8">${t('no_training_data_period')}</p>
-      ` : `
-        <div class="grid grid-cols-2 gap-3 mb-5">
-          <div class="bg-white rounded-2xl border border-parchment2 p-4">
-            <p class="text-xs text-ink/50 mb-1">${t('best_session_label')}</p>
-            <p class="font-display text-2xl text-pinedark">${stats.bestSessionTotal}</p>
-          </div>
-          <div class="bg-white rounded-2xl border border-parchment2 p-4">
-            <p class="text-xs text-ink/50 mb-1">${t('avg_per_arrow_label')}</p>
-            <p class="font-display text-2xl text-pinedark">${stats.currentAvg.toFixed(2)}</p>
-          </div>
-        </div>
-
-        <div class="bg-white rounded-2xl border border-parchment2 p-4 mb-5 flex items-center justify-between">
-          <div>
-            <p class="text-xs text-ink/50 mb-1">${t('trend_label')}</p>
-            <p class="font-display text-lg text-pinedark">${trendIcon[stats.trend]} ${t('trend_' + stats.trend)}</p>
-          </div>
-          ${stats.previousAvg !== null ? `<p class="text-xs text-ink/40">${t('trend_comparison', stats.previousAvg.toFixed(2))}</p>` : ''}
-        </div>
-
-        <p class="font-display text-sm text-ink/50 uppercase tracking-widest mb-2">${t('avg_by_arrow_count_title')}</p>
-        <div class="flex flex-col gap-2">
-          ${stats.perArrowCountBreakdown.map(b => `
-            <div class="bg-white rounded-xl border border-parchment2 px-4 py-3 flex items-center justify-between">
-              <p class="text-sm font-medium">${t('arrows_per_round_label', b.arrowsPerRound)}</p>
-              <p class="text-sm font-display text-gold">${t('avg_per_round_value', b.avgPerRound.toFixed(1), b.avgPerArrow.toFixed(2))}</p>
-            </div>
-          `).join('')}
-        </div>
-      `}
-    `}
-  `;
-}
-
-function renderWorldMap() {
-  const archers = listTrainingArchers();
-  if (!state.worldMapArcher || !archers.includes(state.worldMapArcher)) {
-    state.worldMapArcher = archers[0] || null;
-  }
-  const visited = state.worldMapArcher ? countriesForArcher(state.worldMapArcher) : [];
-  const activeContinent = CONTINENTS.find(c => c.key === state.worldMapContinent) || CONTINENTS[0];
-  const countriesInContinent = COUNTRIES.filter(c => c.continent === activeContinent.key);
-  const visitedInContinent = countriesInContinent.filter(c => visited.includes(c.code)).length;
-
-  return `
-    <div class="pt-10 pb-6">
-      <button data-action="back-to-mode-from-world-map" class="text-sm text-ink/50 mb-4">${t('nav_back')}</button>
-      <h1 class="font-display text-4xl text-pinedark text-center">🌍 ${t('world_map_title')}</h1>
-    </div>
-
-    ${renderStatsCodeLookup()}
-
-    ${archers.length === 0 ? `
-      <p class="text-center text-sm text-ink/50 mt-10">${t('no_training_data')}</p>
-    ` : `
-      <div class="mb-4">
-        <span class="text-sm font-medium text-ink/70 mb-2 block">${t('archer_label')}</span>
-        <div class="flex flex-wrap gap-2">
-          ${archers.map(name => `
-            <button data-action="set-world-map-archer" data-archer="${escapeHtml(name)}"
-              class="h-10 px-4 rounded-xl border-2 font-display text-sm transition-colors
-                ${state.worldMapArcher === name ? 'bg-pine border-pine text-parchment' : 'bg-white border-parchment2 text-ink/60'}">
-              ${escapeHtml(name)}
-            </button>
-          `).join('')}
-        </div>
-      </div>
-
-      <div class="bg-pine rounded-2xl px-5 py-4 mb-5 text-center">
-        <p class="font-display text-3xl text-parchment">${visited.length}</p>
-        <p class="text-xs text-parchment/70">${t('countries_visited_label')}</p>
-      </div>
-
-      <div class="flex flex-wrap gap-2 mb-5">
-        ${CONTINENTS.map(cont => `
-          <button data-action="select-world-map-continent" data-continent="${cont.key}"
-            class="h-10 px-3 rounded-xl border-2 font-display text-xs transition-colors
-              ${state.worldMapContinent === cont.key ? 'bg-gold border-gold text-white' : 'bg-white border-parchment2 text-ink/60'}">
-            ${cont.flag} ${continentName(cont.key)}
-          </button>
-        `).join('')}
-      </div>
-
-      <p class="text-xs uppercase tracking-widest text-ink/40 mb-2">${t('countries_in_continent_label', visitedInContinent, countriesInContinent.length)}</p>
-      <div class="grid grid-cols-2 gap-2">
-        ${countriesInContinent.map(c => {
-          const wasHere = visited.includes(c.code);
-          return `
-            <div class="rounded-xl px-3 py-2 flex items-center gap-2 ${wasHere ? 'bg-gold/15 border-2 border-gold' : 'bg-white border-2 border-parchment2 opacity-50'}">
-              <span class="text-sm">${c.flag} ${countryName(c.code)}</span>
-              ${wasHere ? '<span class="ml-auto">✅</span>' : ''}
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `}
   `;
 }
 
@@ -4735,39 +2509,23 @@ document.getElementById('app').addEventListener('click', (e) => {
     render();
   }
 
-  if (action === 'set-language') {
-    setLanguage(target.dataset.lang);
-    return;
-  }
-
   /* --- Nutzerverwaltung --- */
   if (action === 'go-user-management') {
     state.screen = 'user-management';
     render();
   }
-  if (action === 'go-user-management-from-hint') {
-    dismissRegistrationHint();
-    state.screen = 'user-management';
-    render();
-  }
-  if (action === 'dismiss-registration-hint') {
-    dismissRegistrationHint();
-  }
   if (action === 'new-user') {
     state.editingUserId = null;
-    state.registerError = null;
     state.screen = 'user-edit';
     render();
   }
   if (action === 'edit-user') {
     state.editingUserId = target.dataset.userId;
-    state.registerError = null;
     state.screen = 'user-edit';
     render();
   }
   if (action === 'cancel-user-edit') {
     state.editingUserId = null;
-    state.registerError = null;
     state.screen = 'user-management';
     render();
   }
@@ -4798,20 +2556,6 @@ document.getElementById('app').addEventListener('click', (e) => {
       render();
     }
   }
-  if (action === 'register-user-centrally') {
-    state.registerError = null;
-    registerUserCentrally(target.dataset.userId);
-    return;
-  }
-  if (action === 'toggle-code-picker') {
-    state.codePickerOpen = !state.codePickerOpen;
-    state.codeInputError = null;
-    render();
-  }
-  if (action === 'submit-user-code') {
-    submitUserCode(parseInt(target.dataset.idx, 10));
-    return;
-  }
   if (action === 'open-user-picker') {
     syncPlayerNamesFromInputs();
     state.userPickerForIndex = parseInt(target.dataset.idx, 10);
@@ -4819,8 +2563,6 @@ document.getElementById('app').addEventListener('click', (e) => {
   }
   if (action === 'close-user-picker') {
     state.userPickerForIndex = null;
-    state.codePickerOpen = false;
-    state.codeInputError = null;
     render();
   }
   if (action === 'pick-user-for-slot') {
@@ -4830,27 +2572,8 @@ document.getElementById('app').addEventListener('click', (e) => {
     const profile = loadUserProfiles().find(p => p.id === userId);
     if (profile) {
       state.playerNames[idx] = profile.nickname || (profile.firstName + ' ' + profile.lastName) || `Spieler ${idx + 1}`;
-      if (profile.centralCode) {
-        state.trainingPlayerCodes[idx] = profile.centralCode;
-      } else {
-        delete state.trainingPlayerCodes[idx];
-      }
     }
     state.userPickerForIndex = null;
-    render();
-  }
-  if (action === 'open-country-picker') {
-    state.countryPickerOpen = true;
-    render();
-  }
-  if (action === 'close-country-picker') {
-    state.countryPickerOpen = false;
-    render();
-  }
-  if (action === 'select-country') {
-    state.currentCountry = target.dataset.code;
-    saveCurrentCountry(target.dataset.code);
-    state.countryPickerOpen = false;
     render();
   }
 
@@ -4932,12 +2655,7 @@ document.getElementById('app').addEventListener('click', (e) => {
   }
   if (action === 'pick-mode') {
     state.mode = target.dataset.mode;
-    if (state.mode === 'training') {
-      state.trainingPlayerCodes = {};
-      state.screen = 'training-setup';
-    } else {
-      state.screen = 'setup';
-    }
+    state.screen = 'setup';
     render();
   }
   if (action === 'back-to-mode') {
@@ -5038,173 +2756,6 @@ document.getElementById('app').addEventListener('click', (e) => {
     state.screen = 'mode';
     render();
   }
-
-  if (action === 'start-training') {
-    const inputs = document.querySelectorAll('[data-player-input]');
-    inputs.forEach(inp => {
-      const idx = parseInt(inp.dataset.playerInput, 10);
-      const val = inp.value.trim();
-      state.playerNames[idx] = val || `Spieler ${idx + 1}`;
-    });
-    state.pausedPlayers = [];
-
-    const arrowsInput = document.getElementById('num-training-arrows-input');
-    let numTA = parseInt(arrowsInput.value, 10);
-    if (!numTA || numTA < MIN_TRAINING_ARROWS) numTA = MIN_TRAINING_ARROWS;
-    if (numTA > MAX_TRAINING_ARROWS) numTA = MAX_TRAINING_ARROWS;
-    state.trainingArrowsPerRound = numTA;
-
-    state.trainingScores = makeTrainingScores(state.numPlayers, numTA, 1);
-    state.trainingRoundsCount = 1;
-    state.trainingRound = 0;
-    state.trainingPicker = null;
-    state.trainingHistory = [];
-    state.screen = 'game-training';
-    render();
-  }
-  if (action === 'select-training-round') {
-    state.trainingRound = parseInt(target.dataset.round, 10);
-    state.trainingPicker = null;
-    render();
-  }
-  if (action === 'add-training-round') {
-    for (let p = 0; p < state.numPlayers; p++) {
-      state.trainingScores[p].push(new Array(state.trainingArrowsPerRound).fill(null));
-    }
-    state.trainingRoundsCount += 1;
-    state.trainingRound = state.trainingRoundsCount - 1;
-    state.trainingPicker = null;
-    render();
-  }
-  if (action === 'start-photo-capture') {
-    photoImageObj = null;
-    state.photoCapture = {
-      player: parseInt(target.dataset.player, 10),
-      round: parseInt(target.dataset.round, 10),
-      step: 'center',
-      canvasWidth: null,
-      canvasHeight: null,
-      center: null,
-      edge: null,
-      taps: [],
-      scores: null,
-      tendency: null,
-    };
-    state.photoDonateChecked = false;
-    state.photoDonateDone = false;
-    render();
-  }
-  if (action === 'close-photo-capture') {
-    photoImageObj = null;
-    state.photoCapture = null;
-    render();
-  }
-  if (action === 'reset-photo-calibration') {
-    resetPhotoCalibration();
-  }
-  if (action === 'apply-photo-scores') {
-    applyPhotoScores();
-  }
-  if (action === 'submit-photo-donation') {
-    submitPhotoDonation();
-    return;
-  }
-  if (action === 'open-training-picker') {
-    const p = parseInt(target.dataset.player, 10);
-    const round = parseInt(target.dataset.round, 10);
-    const idx = parseInt(target.dataset.idx, 10);
-    if (state.trainingPicker && state.trainingPicker.player === p && state.trainingPicker.round === round && state.trainingPicker.idx === idx) {
-      state.trainingPicker = null;
-    } else {
-      state.trainingPicker = { player: p, round, idx };
-    }
-    render();
-  }
-  if (action === 'close-training-picker') {
-    state.trainingPicker = null;
-    render();
-  }
-  if (action === 'pick-training-score') {
-    const p = parseInt(target.dataset.player, 10);
-    const round = parseInt(target.dataset.round, 10);
-    const idx = parseInt(target.dataset.idx, 10);
-    const value = parseInt(target.dataset.value, 10);
-    const prevValue = state.trainingScores[p][round][idx];
-    state.trainingScores[p][round][idx] = value;
-    state.trainingHistory.push({ p, round, idx, prevValue });
-
-    const arr = state.trainingScores[p][round];
-    const nextIdx = arr.findIndex((v, i) => i > idx && v === null);
-    state.trainingPicker = nextIdx !== -1 ? { player: p, round, idx: nextIdx } : null;
-    render();
-  }
-  if (action === 'undo-training') {
-    const last = state.trainingHistory.pop();
-    if (last) {
-      state.trainingScores[last.p][last.round][last.idx] = last.prevValue;
-      state.trainingPicker = { player: last.p, round: last.round, idx: last.idx };
-      render();
-    }
-  }
-  if (action === 'finish-training') {
-    const msg = state.language === 'en'
-      ? 'Finish training? Completed rounds will be saved to your statistics.'
-      : state.language === 'fr'
-        ? "Terminer l'entraînement ? Les manches terminées seront enregistrées dans vos statistiques."
-        : 'Training beenden? Abgeschlossene Runden werden in deiner Statistik gespeichert.';
-    if (confirm(msg)) {
-      recordTrainingSession();
-      pruneOldTrainingStats();
-      state.trainingStatsArcher = state.playerNames[activePlayerIndices()[0]] || null;
-      state.trainingStatsPeriod = 'day';
-      state.screen = 'training-stats';
-      render();
-    }
-  }
-  if (action === 'go-training-stats') {
-    state.trainingStatsPeriod = state.trainingStatsPeriod || 'day';
-    state.screen = 'training-stats';
-    render();
-  }
-  if (action === 'back-to-mode-from-training-stats') {
-    state.screen = 'mode';
-    render();
-  }
-  if (action === 'set-training-stats-period') {
-    state.trainingStatsPeriod = target.dataset.period;
-    render();
-  }
-  if (action === 'set-training-stats-archer') {
-    state.trainingStatsArcher = target.dataset.archer;
-    render();
-  }
-  if (action === 'go-world-map') {
-    state.screen = 'world-map';
-    render();
-  }
-  if (action === 'back-to-mode-from-world-map') {
-    state.screen = 'mode';
-    render();
-  }
-  if (action === 'select-world-map-continent') {
-    state.worldMapContinent = target.dataset.continent;
-    render();
-  }
-  if (action === 'set-world-map-archer') {
-    state.worldMapArcher = target.dataset.archer;
-    render();
-  }
-  if (action === 'toggle-stats-code-lookup') {
-    state.statsCodeLookupOpen = !state.statsCodeLookupOpen;
-    state.statsLookupError = null;
-    render();
-  }
-  if (action === 'submit-stats-code') {
-    const input = document.getElementById('stats-code-input');
-    if (input) loadCloudTrainingHistory(input.value);
-    return;
-  }
-
   if (action === 'clear-stats') {
     if (confirm('Gesamte Statistik der letzten 7 Tage löschen?')) {
       try { localStorage.removeItem(STATS_KEY); } catch (e) {}
@@ -5482,53 +3033,13 @@ if (urlEntitlement === 'single' || urlEntitlement === 'multi') {
   state.entitlement = urlEntitlement;
 }
 
-// Separates Registrierungs-Abo: ebenfalls beim allerersten Laden per URL-Parameter
-// uebergeben (nicht nur bei spaeteren Aenderungen ueber die Bruecke unten) - sonst wuerde
-// ein bereits VOR App-Start aktives Registrierungs-Abo beim Start nicht erkannt.
-const urlHasRegistration = new URLSearchParams(window.location.search).get('hasRegistration');
-if (urlHasRegistration === 'true') {
-  state.hasRegistrationEntitlement = true;
-}
-if (state.entitlement === 'single' || state.entitlement === 'multi' || state.hasRegistrationEntitlement) {
-  renewAllLocalRegistrations();
-}
-maybeShowRegistrationHint();
-
 // Wird von der nativen iOS-App aufgerufen, wenn sich der Abo-Status ändert
 // (z.B. nach einem Upgrade-Kauf), ohne die laufende Partie neu zu laden.
 window.updateEntitlement = function (newEntitlement) {
   if (newEntitlement !== 'single' && newEntitlement !== 'multi') return;
   state.entitlement = newEntitlement;
-  renewAllLocalRegistrations();
-  continuePendingRegistrationIfEligible();
-  maybeShowRegistrationHint();
   render();
 };
-
-// Wird von der nativen iOS-App aufgerufen, wenn sich der separate Status des
-// "Nur zentrale Registrierung"-Jahresabos ändert (unabhängig von Single/Multi Device).
-window.updateRegistrationEntitlement = function (hasIt) {
-  state.hasRegistrationEntitlement = !!hasIt;
-  if (state.hasRegistrationEntitlement) {
-    renewAllLocalRegistrations();
-    continuePendingRegistrationIfEligible();
-  }
-  render();
-};
-
-// "Heartbeat": Verlaengert bei jeder bestaetigten Registrierungsberechtigung (Single-/
-// Multi-Device-Abo ODER eigenes Registrierungs-Abo) den Karenzzeit-Zeitstempel aller
-// lokal bekannten, zentral registrierten Profile. So bleiben aktiv genutzte Profile
-// bestehen, waehrend nie erneuerte Profile nach der Karenzzeit serverseitig verfallen.
-function renewAllLocalRegistrations() {
-  if (typeof window.fbRenewRegistration !== 'function' || !window.fbConfigured) return;
-  const profiles = loadUserProfiles();
-  profiles.forEach(p => {
-    if (p.centralCode) window.fbRenewRegistration(p.centralCode).catch(() => {});
-  });
-}
-
-document.documentElement.setAttribute('lang', state.language);
 
 const urlCode = new URLSearchParams(window.location.search).get('code');
 if (urlCode && /^\d{4}$/.test(urlCode)) {
